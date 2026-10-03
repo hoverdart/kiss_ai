@@ -16,7 +16,7 @@ investigates why tool-output compaction did not lower the share of steps above 1
   `events` and replay through `kiss.core.context_compaction.compact_tool_results`:
 
   ```bash
-  sqlite3 ~/.kiss/sorcar.db "VACUUM INTO '/tmp/cost72.db'"
+  sqlite3 ~/.kiss/history.db "VACUUM INTO '/tmp/cost72.db'"   # sorcar.db before 2026.10.2; the old name stays as a symlink
   .venv/bin/python projects/cost-levers-followup-2026-09-20/compaction_analysis.py --db /tmp/cost72.db --since 1789804587
   .venv/bin/python projects/cost-levers-followup-2026-09-20/compaction_simulation.py --db /tmp/cost72.db --since 1789804587
   ```

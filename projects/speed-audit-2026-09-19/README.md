@@ -1,9 +1,10 @@
 # Sorcar speed audit (7 days ending 2026-09-19 05:41 UTC)
 
-Reproduce:
+Reproduce (the history database is `~/.kiss/history.db` since version 2026.10.2; the daemon
+renames an older `sorcar.db` on first open and leaves the old name as a symlink):
 
 ```bash
-sqlite3 ~/.kiss/sorcar.db "VACUUM INTO '/tmp/speed7.db'"
+sqlite3 ~/.kiss/history.db "VACUUM INTO '/tmp/speed7.db'"
 sqlite3 /tmp/speed7.db "
 attach '/tmp/speed7d.db' as d;
 create table d.th as select id, timestamp, task, result, chat_id, model, work_dir, tokens, cost, steps,
