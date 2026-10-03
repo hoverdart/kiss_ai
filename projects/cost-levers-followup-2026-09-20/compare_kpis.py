@@ -52,7 +52,7 @@ KPI_ORDER = [
     "subagents",
     "cost_usd",
     "steps",
-    "sorcar_md_reads",
+    "agents_md_reads",
     "shell_wrapper_subagents",
     "shell_wrapper_cost_usd",
     "subagent_step1_context_avg",
@@ -264,6 +264,8 @@ def main() -> int:
     baseline = None
     if Path(a.baseline).exists():
         baseline = json.loads(Path(a.baseline).read_text())
+        if "sorcar_md_reads" in baseline:  # the KPI's name before 2026.10.2
+            baseline["agents_md_reads"] = baseline.pop("sorcar_md_reads")
     ran_at = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
     md = render_markdown(baseline, raw, filt, breakdown, a.hours, ran_at)
     print(md)
