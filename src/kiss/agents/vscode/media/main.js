@@ -4171,7 +4171,12 @@
   function withContentContextMenu(html) {
     const api = window.ContentContextMenu;
     if (!api) return html;
-    const boot = api.contentContextMenuBootstrapHtml();
+    return withBodyEndScript(html, api.contentContextMenuBootstrapHtml());
+  }
+
+  // Insert *boot* (a <script>) before the last </body> of *html*, or
+  // at its end when there is none.
+  function withBodyEndScript(html, boot) {
     // The ORIGINAL string is searched case-insensitively: lower-casing is
     // not length preserving in Unicode (U+0130 becomes two UTF-16 units),
     // so an index taken from a lower-cased copy can land mid-tag.
@@ -4184,6 +4189,16 @@
     }
     if (at < 0) return html + boot;
     return html.slice(0, at) + boot + html.slice(at);
+  }
+
+  // The remote page's phone layout steps between its screens by
+  // swiping (see the mobilescreens block), and a preview iframe fills
+  // the file screen: the detector is shipped into it the same way as
+  // the menu, and reports its swipes to the parent by message.
+  function withMobileSwipe(html) {
+    const api = window.MobileSwipe;
+    if (!api || !document.body.classList.contains('remote-chat')) return html;
+    return withBodyEndScript(html, api.bootstrapHtml());
   }
 
   // The menu belongs to read-only content surfaces only — the tab that
@@ -4298,7 +4313,7 @@
     iframe.setAttribute('sandbox', 'allow-scripts');
     if (saveKeyBridge) html = withContentSaveKeyBridge(html || '');
     // ctxmenu-coverage:start
-    iframe.srcdoc = withContentContextMenu(html);
+    iframe.srcdoc = withMobileSwipe(withContentContextMenu(html));
     // ctxmenu-coverage:end
     view.appendChild(iframe);
     return iframe;
@@ -5778,7 +5793,7 @@
   // started, and the bodies below share the rest.  The LAST expanded
   // section's body always fills the leftover height.  Every expanded
   // body keeps a minimum height (main.css: half an equal share, at
-  // most 4rem) so a dragged body never leaves the sections below it
+  // most 4.5rem) so a dragged body never leaves the sections below it
   // as headers over 0px bodies; applyMetaSectionLayout publishes the
   // equal share as --meta-body-share on the panel.  Collapse state
   // and dragged heights persist in localStorage; every section starts
@@ -7585,6 +7600,13 @@
       workDir: workDir || sidebarWorkDir(),
       tabId: activeTabId,
     });
+    closeMetaDrawerForContent();
+  }
+
+  /** The phone layout's task-info drawer closes so a content tab
+   *  opened from it (Explorer, Source Control) is visible; the docked
+   *  desktop panel stays. */
+  function closeMetaDrawerForContent() {
     if (!document.body.classList.contains('remote-desktop'))
       setMetaDrawerOpen(false);
   }
@@ -10175,6 +10197,9 @@
     );
   }
 
+  /** Ask the daemon for a commit's patch, a file at a commit or a diff
+   *  (gitShow); the reply opens as a content tab (handleGitShow), so
+   *  the phone drawer closes as it does for a file. */
   function sendGitShow(request, target) {
     const at = target || gitTarget();
     const token = nextSidebarToken('show');
@@ -10189,6 +10214,7 @@
       tabId: at.tabId,
       token: token,
     });
+    closeMetaDrawerForContent();
   }
 
   function handleGitActionResult(ev) {
@@ -15827,16 +15853,21 @@
   function composerFocusWouldSteal() {
     const active = document.activeElement;
     if (active && active !== inp && isTextEntry(active)) return true;
+    if (sheetOrModalOpen()) return true;
+    if (document.querySelector('.kiss-notification-input')) return true;
+    return false;
+  }
+
+  /** Whether a sheet (settings / promptlets), the work-dir panel or
+   *  the server-reset confirm is open over the page. */
+  function sheetOrModalOpen() {
     if (openSheets.length) return true;
     const workdirPanel = document.getElementById('workdir-panel');
     if (workdirPanel && workdirPanel.classList.contains('open')) return true;
-    if (
+    return Boolean(
       serverResetConfirmModal &&
-      serverResetConfirmModal.classList.contains('open')
-    )
-      return true;
-    if (document.querySelector('.kiss-notification-input')) return true;
-    return false;
+      serverResetConfirmModal.classList.contains('open'),
+    );
   }
 
   /**
@@ -20220,18 +20251,18 @@
         hideAC();
       }
     });
-    function toggleHistorySidebar() {
-      if (sidebar.classList.contains('open')) {
-        closeSidebar(true);
-      } else {
-        sidebar.classList.add('open');
-        if (!document.body.classList.contains('remote-desktop')) {
-          sidebarOverlay.classList.add('open');
-        }
-        requestHistoryFromStart();
-        // The drawer may have missed task news while closed.
-        refreshSidebarDataViews(false);
+    function openHistorySidebar() {
+      sidebar.classList.add('open');
+      if (!document.body.classList.contains('remote-desktop')) {
+        sidebarOverlay.classList.add('open');
       }
+      requestHistoryFromStart();
+      // The drawer may have missed task news while closed.
+      refreshSidebarDataViews(false);
+    }
+    function toggleHistorySidebar() {
+      if (sidebar.classList.contains('open')) closeSidebar(true);
+      else openHistorySidebar();
     }
     if (menuBtn) {
       menuBtn.addEventListener('click', toggleHistorySidebar);
@@ -20377,6 +20408,127 @@
         setMetaDrawerOpen(false);
       });
     }
+    // mobilescreens-coverage:start
+    // ---- The phone layout's four screens, swiped left and right ------
+    //
+    // Below the desktop breakpoint the remote page's four side-by-side
+    // panes become four screens in the same left-to-right order: the
+    // chats (the history drawer), the chat, the open file (a content
+    // tab shown in place of the chat) and the task info (the right
+    // drawer).  A swipe moves one screen in the finger's direction; the
+    // file screen is skipped while no content tab is open.  The screen
+    // on view is read from the drawers and the active tab, so the
+    // buttons that open the drawers and the tab strip stay in step
+    // with the gesture.
+    const SCREEN_CHATS = 0;
+    const SCREEN_CHAT = 1;
+    const SCREEN_FILE = 2;
+    const SCREEN_INFO = 3;
+
+    /** The mobile screen on view now. */
+    function mobileScreen() {
+      if (sidebar.classList.contains('open')) return SCREEN_CHATS;
+      if (metaPanel && metaPanel.classList.contains('open')) {
+        return SCREEN_INFO;
+      }
+      const active = getTab(activeTabId);
+      return active && active.isContentTab ? SCREEN_FILE : SCREEN_CHAT;
+    }
+
+    /** The content tab the file screen shows: the active one, else the
+     *  file viewed last, else the first open one; null when none. */
+    function mobileFileTab() {
+      const active = getTab(activeTabId);
+      if (active && active.isContentTab) return active;
+      const last = getTab(lastViewedContentTabId);
+      if (last && last.isContentTab) return last;
+      return tabs.find(t => t.isContentTab) || null;
+    }
+
+    /** Put *screen* (a SCREEN_* constant) on view. */
+    function showMobileScreen(screen) {
+      if (screen === SCREEN_CHATS) {
+        setMetaDrawerOpen(false);
+        openHistorySidebar();
+        return;
+      }
+      closeSidebar(true);
+      if (screen === SCREEN_INFO) {
+        setMetaDrawerOpen(true);
+        return;
+      }
+      setMetaDrawerOpen(false);
+      const active = getTab(activeTabId);
+      if (screen === SCREEN_FILE) {
+        const file = mobileFileTab();
+        if (file && file !== active) switchToTab(file.id);
+        return;
+      }
+      if (!active || !active.isContentTab) return;
+      const chat = rootChatTab(active) || tabs.find(t => !t.isContentTab);
+      if (chat) switchToTab(chat.id);
+    }
+
+    /** A swipe in *direction* ('left' / 'right') on the phone layout:
+     *  one screen along, skipping the file screen when no content tab
+     *  is open.  A sheet or modal over the page keeps the gesture. */
+    function onMobileSwipe(direction) {
+      if (splitLayout() || sheetOrModalOpen()) return;
+      const step = direction === 'left' ? 1 : -1;
+      let next = mobileScreen() + step;
+      if (next === SCREEN_FILE && !mobileFileTab()) next += step;
+      if (next < SCREEN_CHATS || next > SCREEN_INFO) return;
+      showMobileScreen(next);
+    }
+
+    /** The sideways scroll offsets of the open Monaco editors: an
+     *  editor scrolls through transforms, so mobileSwipe.js cannot tell
+     *  from the DOM that a drag scrolled it. */
+    function editorScrollLefts() {
+      const lefts = [];
+      tabs.forEach(t => {
+        const editor = t.contentEditor;
+        if (!editor) return;
+        // A diff tab (renderDiffContent) holds a diff editor: two code
+        // editors, each scrolling on its own.
+        const sides = editor.getModifiedEditor
+          ? [editor.getOriginalEditor(), editor.getModifiedEditor()]
+          : [editor];
+        sides.forEach(side => lefts.push(side.getScrollLeft()));
+      });
+      return lefts;
+    }
+
+    /** Whether *win* is the preview iframe of the content tab on
+     *  screen: the only iframe whose swipe messages count (a page
+     *  rendered in a hidden tab, or anything else, cannot turn the
+     *  screens). */
+    function isShownPreviewWindow(win) {
+      const tab = getTab(shownContentTabId());
+      const view = tab && tab.contentViewEl;
+      const frame = view && view.querySelector('iframe.content-html-frame');
+      return Boolean(frame && win && frame.contentWindow === win);
+    }
+
+    /** A swipe reported by the preview iframe (withMobileSwipe). */
+    function onPreviewSwipeMessage(e) {
+      const direction = e.data && e.data.kissMobileSwipe;
+      if (direction !== 'left' && direction !== 'right') return;
+      if (!isShownPreviewWindow(e.source)) return;
+      onMobileSwipe(direction);
+    }
+
+    if (document.body.classList.contains('remote-chat') && window.MobileSwipe) {
+      window.MobileSwipe.install(document, onMobileSwipe, {
+        // The composer has its own swipes (accept the ghost suggestion,
+        // cycle the prompt history); the streamed browser screen
+        // forwards drags to the remote page.
+        ignore: '#task-input, .browser-view',
+        scrollPositions: editorScrollLefts,
+      });
+      window.addEventListener('message', onPreviewSwipeMessage);
+    }
+    // mobilescreens-coverage:end
     setupWorkspaceViews();
     setupWorkDirPanel();
     applyRemoteTheme(getSavedRemoteTheme());

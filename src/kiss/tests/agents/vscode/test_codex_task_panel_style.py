@@ -10,7 +10,7 @@ Features on the remote webapp (served by ``RemoteAccessServer``):
    task's thread) inherits main.css's look verbatim (the page
    foreground over the user bubble's accent wash, plus a 1px accent hairline; the
    remote page merely swaps the palette variables), its text sized by
-   the page's injected 14px ``--vscode-editor-font-size``.  The event
+   the page's injected 13px ``--vscode-editor-font-size``.  The event
    panels likewise inherit
    the extension's main.css typography — that extension-parity
    contract is pinned end to end by
@@ -1012,8 +1012,8 @@ def test_live_task_panel_typography_and_history_rows(
     if isinstance(thread_error, BaseException):
         raise AssertionError("RemoteAccessServer thread failed") from thread_error
 
-    assert probes["taskPanelFontSize"] == "14px", (
-        "the task panel must size itself from the injected 14px "
+    assert probes["taskPanelFontSize"] == "13px", (
+        "the task panel must size itself from the injected 13px "
         "--vscode-editor-font-size: " + repr(probes)
     )
     assert probes["thinkColor"] != "MISSING", (
