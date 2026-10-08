@@ -1017,7 +1017,7 @@ body.remote-chat:not(.light-theme) .welcome-logo-dark { display: block; }
 .remote-url-tls-hint a { color: var(--accent); text-decoration: none; }
 .remote-url-tls-hint a:hover { text-decoration: underline; }
 
-/* Every transcript panel (tool calls, results, Thoughts, prompts, status
+/* Every transcript panel (tool calls, results, Thinking, prompts, status
    lines) is left-justified, a twentieth of the chat's width clear on
    its right; the user's own panels (.task-panel, .user-msg above) are
    the exception, right-justified with a tenth clear on their left.  A
@@ -1030,7 +1030,7 @@ body.remote-chat:not(.light-theme) .welcome-logo-dark { display: block; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 
-/* The model's thinking tokens, streamed as plain text into the Thoughts
+/* The model's thinking tokens, streamed as plain text into the Thinking
    panel ahead of its words (.txt): dimmer and italic, no box of its own. */
 .think {
   font-size: var(--fs-md); line-height: 1.5; color: var(--dim); font-style: italic;
@@ -1080,7 +1080,7 @@ body.remote-chat:not(.light-theme) .welcome-logo-dark { display: block; }
 .tc-h:hover, .task-panel-h:hover, .trajectory-h:hover { color: var(--fg); }
 
 /* While a panel is active (panel.panel-active: a tool call from its
-   tool_call to its tool_result, the Thoughts panel while the model
+   tool_call to its tool_result, the Thinking panel while the model
    thinks and writes; stampPanelStart / finalizePanelTime in main.js),
    its header text breathes: a mild, slow opacity pulse. */
 .panel-active > .tc-h,

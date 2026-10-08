@@ -328,7 +328,7 @@
    * Called when a task ends (task_done / task_error / task_stopped /
    * task_interrupted) and after the replay of a task that has ended:
    * every `.ev` / `.llm-panel` child of *root* -- tool calls and
-   * results, Thoughts, prompts, summaries, status lines -- moves, in
+   * results, Thinking, prompts, summaries, status lines -- moves, in
    * order, into the `.trajectory-sub` of one `.ev.trajectory`
    * panel standing where the first of them stood, so the transcript
    * reads as the task's text, its trajectory and its result.  Left
@@ -1362,7 +1362,7 @@
   function mkThoughtsPanel(ts) {
     const panel = mkEl('div', 'llm-panel');
     const hdr = mkEl('div', 'llm-panel-hdr');
-    hdr.textContent = 'Thoughts';
+    hdr.textContent = 'Thinking';
     addCollapse(panel, hdr, ts);
     panel.appendChild(hdr);
     stampPanelStart(panel, ts);
@@ -13580,7 +13580,7 @@
 
   /**
    * True for a panel that no automatic pass ever folds or hides: a
-   * Thoughts panel (`llm-panel`, the agent's words), a message the
+   * Thinking panel (`llm-panel`, the agent's words), a message the
    * user typed into the running task (`user-msg`), a `/ask` answer
    * (an `ask_answer` event) or an ask_user_question "Question" panel.
    * The user's response is a separate `user-msg` panel.
@@ -13590,7 +13590,7 @@
    * is loaded on: not the streaming sweep (collapseOlderPanels), not a
    * replay or share export (collapseAllExceptResult), not the
    * finished-task digest (applyChevronState), and a `summary` tool call
-   * leaves them out of the panels it adopts -- except the Thoughts
+   * leaves them out of the panels it adopts -- except the Thinking
    * panels, which the summary does fold (it recounts those very
    * steps). Otherwise only the user folds them, by their header.
    *
@@ -14224,7 +14224,7 @@
     if (t !== 'usage_info' && t !== 'result') tState.resultPanelEl = null;
     switch (t) {
       // The model's thinking tokens stream as plain text straight into
-      // the Thoughts panel (a dim `.think` block, no header or box of
+      // the Thinking panel (a dim `.think` block, no header or box of
       // its own), followed by its words (`.txt`).
       case 'thinking_start':
         tState.thinkEl = mkEl('div', 'think');
@@ -14532,7 +14532,7 @@
               !sib.classList.contains('llm-panel')
             )
               break;
-            // A Thoughts panel always belongs in the digest, even when
+            // A Thinking panel always belongs in the digest, even when
             // its Markdown shows a picture: the summary stands for the
             // steps it recounts, their thoughts included.  Other media
             // panels, questions and messages remain expanded siblings
@@ -15078,7 +15078,7 @@
     }
     if (t === 'result') {
       // A failure's result follows the last tool_result directly, so the
-      // Thoughts panel opened on spec above is still empty: withdraw it
+      // Thinking panel opened on spec above is still empty: withdraw it
       // rather than seal it into the transcript.
       if (ctx.llmPanel && ctx.llmPanel._provisional)
         discardProvisionalPanel(ctx.llmPanel);
