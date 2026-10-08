@@ -1949,6 +1949,11 @@ body.remote-chat #terminal-btn { display: flex; }
    (remote-codex.css shows it). */
 #meta-drawer { display: none; }
 
+/* The tab that unfolds the content pane its hide button folded away
+   exists only on the desktop remote page with the pane folded
+   (remote-codex.css shows it). */
+#content-pane-show { display: none; }
+
 /* Task-info panel sections (every surface).  #meta-panel is a flex
    column; each <section class="meta-section"> is `display: contents`,
    so its header row and its body are the PANEL's flex items: the

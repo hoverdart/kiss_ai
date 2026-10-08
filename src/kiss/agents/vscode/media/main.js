@@ -1921,6 +1921,13 @@
   // tab instead; shownContentTabId() reads the one on screen either way.
   let activeContentTabId = null;
 
+  // The user folded the content pane away (#content-pane-hide, the
+  // button at the right end of its tab row): the chat alone fills #app
+  // while the content tabs stay open.  #content-pane-show on the
+  // chat's right edge unfolds it, as does the next content tab shown
+  // (showInContentPane).  Cleared once no content tab is left.
+  let contentPaneHidden = false;
+
   function shownContentTabId() {
     if (splitLayout()) return activeContentTabId;
     const active = getTab(activeTabId);
@@ -2075,7 +2082,10 @@
     list.setAttribute('aria-label', 'Open files');
     list.innerHTML = '';
     const contentTabs = tabs.filter(t => t.isContentTab);
-    syncContentPaneOpen(split && contentTabs.length > 0);
+    if (contentTabs.length === 0) contentPaneHidden = false;
+    const folded = split && contentTabs.length > 0 && contentPaneHidden;
+    document.body.classList.toggle('content-pane-folded', folded);
+    syncContentPaneOpen(split && contentTabs.length > 0 && !folded);
     if (!split) return;
     const rovingStopId = contentTabs.some(t => t.id === activeContentTabId)
       ? activeContentTabId
@@ -2471,6 +2481,45 @@
     else setMetaDrawerOpen(false);
   }
 
+  /**
+   * Split layout: fold the content pane away (the hide button at the
+   * right end of its tab row) or unfold it (the show tab on the chat's
+   * right edge).  Folded, the chat alone fills #app and the task-info
+   * panel docks beside it again; unfolded, the panel slides off the
+   * pane.  The content tabs stay open either way, and the next one
+   * shown unfolds the pane too (showInContentPane).
+   *
+   * @param {boolean} hidden True to fold the pane away.
+   */
+  function setContentPaneHidden(hidden) {
+    hidden = !!hidden;
+    if (contentPaneHidden === hidden) return;
+    contentPaneHidden = hidden;
+    const hideBtn = document.getElementById('content-pane-hide');
+    const showBtn = document.getElementById('content-pane-show');
+    // Whether focus sat in the pane, read before the render hides it.
+    const ae = document.activeElement;
+    const inPane =
+      ae === hideBtn || !!(contentArea && ae && contentArea.contains(ae));
+    renderTabBar();
+    // Unfolded to be looked at: the task-info panel slides off the
+    // pane as it does for a tab opened into it (switchToTab).
+    if (!hidden) setMetaPanelHidden(true);
+    // Keyboard focus follows the control that is left: the show tab
+    // once the pane (and its hide button) is gone, the hide button
+    // once the show tab is.
+    if (hidden && inPane && showBtn) showBtn.focus();
+    else if (!hidden && ae === showBtn && hideBtn) hideBtn.focus();
+  }
+
+  function onContentPaneHideClick() {
+    setContentPaneHidden(true);
+  }
+
+  function onContentPaneShowClick() {
+    setContentPaneHidden(false);
+  }
+
   /** The window lost focus to a frame of the content pane: a press there. */
   function onWindowBlurIntoContentFrame() {
     const ae = document.activeElement;
@@ -2486,10 +2535,17 @@
   /**
    * Split layout: show *tab* in the content pane, or empty the pane
    * when *tab* is null.  The chat on screen is not touched.
+   *
+   * A tab put in the pane is there to be looked at, whoever put it
+   * (the user from the Explorer or a link, the agent, the successor of
+   * a closed tab, the restore on a return to the desktop layout): a
+   * folded pane unfolds and the docked task-info panel slides off it;
+   * the drawer tab brings the panel back (setMetaPanelHidden).
    */
   function showInContentPane(tab) {
     activeContentTabId = tab ? tab.id : null;
     if (tab) {
+      contentPaneHidden = false;
       showContentTab(tab);
     } else {
       closeContentMenu();
@@ -2501,6 +2557,8 @@
       syncTerminalTabVisibility(null);
     }
     renderTabBar();
+    // After the render: the slide only takes with the pane open.
+    if (tab) setMetaPanelHidden(true);
   }
 
   // The chat pane's share of the split (percent of the chat + content
@@ -4626,7 +4684,11 @@
         renderContentView(existing, ev);
       }
       if (reloading) existing.contentReloadRequested = false;
-      if (shownContentTabId() === existing.id) showContentTab(existing);
+      // In the split layout a file opened to be seen goes through the
+      // pane even when it is the one shown there: the pane may be
+      // folded away or under the task-info panel (showInContentPane).
+      if (mayFocus && splitLayout()) switchToTab(existing.id);
+      else if (shownContentTabId() === existing.id) showContentTab(existing);
       else if (mayFocus) switchToTab(existing.id);
       return;
     }
@@ -20394,6 +20456,16 @@
     const metaDrawer = document.getElementById('meta-drawer');
     if (metaDrawer) {
       metaDrawer.addEventListener('click', () => setMetaPanelHidden(false));
+    }
+    // The hide button at the right end of the pane's tab row folds the
+    // pane away; the show tab on the chat's right edge unfolds it.
+    const contentPaneHide = document.getElementById('content-pane-hide');
+    if (contentPaneHide) {
+      contentPaneHide.addEventListener('click', onContentPaneHideClick);
+    }
+    const contentPaneShow = document.getElementById('content-pane-show');
+    if (contentPaneShow) {
+      contentPaneShow.addEventListener('click', onContentPaneShowClick);
     }
     if (metaPanel && metaDrawerBtn) {
       // Escape dismisses the open mobile drawer like any dialog; the

@@ -11,10 +11,15 @@
 //     a file, browser or terminal tab is open: body.content-pane-open
 //     follows the open content tabs, and without it #app is the chat
 //     column alone, clear of the docked panel;
-//   * with the pane open the panel lies on top of it; a press anywhere
-//     in the pane slides the panel off (body.meta-hidden, the panel
-//     inert) and the #meta-drawer tab brings it back; closing the last
-//     content tab brings it back too;
+//   * with the pane open the panel lies on top of it; opening a file, a
+//     browser or a terminal (the user or the agent) and a press
+//     anywhere in the pane slide the panel off (body.meta-hidden, the
+//     panel inert) and the #meta-drawer tab brings it back; closing the
+//     last content tab brings it back too;
+//   * the hide button at the right end of the pane's tab row folds the
+//     pane away (body.content-pane-folded: the chat alone, the panel
+//     docked, the content tabs kept); the #content-pane-show tab or the
+//     next content tab shown unfolds it;
 //   * the Explorer and Source Control sections catch up on task news
 //     that arrived while the panel was hidden;
 //   * the machine name from configData shows above the transcript;
@@ -178,10 +183,7 @@ test('a press in the pane hides the panel; the drawer and the pane closing bring
   assert.ok(!hasClass(win, 'meta-hidden'));
 
   const fileTab = openChatAndFile(win);
-  assert.ok(!hasClass(win, 'meta-hidden'), 'the panel starts on top');
-  assert.strictEqual(drawer.getAttribute('aria-expanded'), 'true');
-  press(win, byId(win, 'content-tab-area'));
-  assert.ok(hasClass(win, 'meta-hidden'), 'a press in the pane hides it');
+  assert.ok(hasClass(win, 'meta-hidden'), 'the file opened: the panel slid off');
   assert.ok(panel.hasAttribute('inert'), 'the hidden panel is inert');
   assert.strictEqual(drawer.getAttribute('aria-expanded'), 'false');
 
@@ -190,10 +192,16 @@ test('a press in the pane hides the panel; the drawer and the pane closing bring
   assert.ok(!panel.hasAttribute('inert'));
   assert.strictEqual(drawer.getAttribute('aria-expanded'), 'true');
 
+  press(win, byId(win, 'content-tab-area'));
+  assert.ok(hasClass(win, 'meta-hidden'), 'a press in the pane hides it');
+  assert.strictEqual(drawer.getAttribute('aria-expanded'), 'false');
+  click(win, drawer);
+  assert.ok(!hasClass(win, 'meta-hidden'));
+
   // The pane's tab row counts as the pane.
   press(win, byId(win, 'content-tab-bar'));
   assert.ok(hasClass(win, 'meta-hidden'));
-  // A second file keeps the user's choice.
+  // A second file keeps it off the pane.
   send(win, {
     type: 'fileContent',
     tabId: 'a1',
@@ -216,6 +224,8 @@ test('a press in the pane hides the panel; the drawer and the pane closing bring
 test('focus taken by a frame of the pane counts as a press in it', () => {
   const {win} = makeWebview();
   openChatAndFile(win);
+  click(win, byId(win, 'meta-drawer'));
+  assert.ok(!hasClass(win, 'meta-hidden'), 'the panel is back after the open');
   const area = byId(win, 'content-tab-area');
   const frame = win.document.createElement('iframe');
   area.appendChild(frame);
@@ -391,6 +401,9 @@ test('the panel close button hides the docked panel; focus follows the controls'
   const drawer = byId(win, 'meta-drawer');
   const close = byId(win, 'meta-close');
   openChatAndFile(win);
+  // The open slid the panel off; the drawer brings it back.
+  click(win, drawer);
+  assert.ok(!hasClass(win, 'meta-hidden'));
   // A panel wide enough to cover the whole pane leaves nothing to
   // press there: its close button hides it.
   close.focus();
@@ -520,6 +533,18 @@ test('the stylesheets carry the layout, the pulse and the machine strip', () => 
   );
   assert.ok(/display:\s*block/.test(closeShown));
   assert.ok(/display:\s*none/.test(rule(main, '#meta-drawer')));
+  // The pane's hide button sits at the right end of its tab row; the
+  // show tab exists only on the desktop remote page with the pane
+  // folded, on the chat's right edge against the docked panel.
+  const hide = rule(remote, 'body.remote-chat #content-pane-hide');
+  assert.ok(/display:\s*inline-flex/.test(hide) && /flex-shrink:\s*0/.test(hide));
+  assert.ok(/display:\s*none/.test(rule(main, '#content-pane-show')));
+  const show = rule(
+    remote,
+    'body.remote-chat.remote-desktop.content-pane-folded #content-pane-show',
+  );
+  assert.ok(/position:\s*fixed/.test(show));
+  assert.ok(/right:\s*var\(--meta-w, var\(--meta-panel-w\)\)/.test(show));
   // The machine strip: centred, bold, green, gone while empty.
   const machine = rule(main, '#chat-machine');
   assert.ok(/text-align:\s*center/.test(machine));
@@ -538,6 +563,273 @@ test('the stylesheets carry the layout, the pulse and the machine strip', () => 
   const html = fs.readFileSync(path.join(MEDIA, 'chat.html'), 'utf8');
   assert.ok(!/id="activity-bar"/.test(html));
   assert.ok(/id="meta-explorer"/.test(html) && /id="meta-scm"/.test(html));
+});
+
+/**
+ * Give the page the browser and terminal tab views.  jsdom has no
+ * xterm.js (terminalTab.js fetches it from a CDN unless window.Terminal
+ * and window.FitAddon exist) and no ResizeObserver, so the terminal
+ * gets the same minimal stand-ins terminalTabView.test.js uses; the
+ * browser view runs as is.
+ */
+function addBrowserAndTerminal(win) {
+  class Terminal {
+    constructor() {
+      this.cols = 80;
+      this.rows = 24;
+      this.options = {};
+    }
+    open() {}
+    loadAddon() {}
+    attachCustomKeyEventHandler() {}
+    write() {}
+    onData() {}
+    onResize() {}
+    focus() {}
+    getSelection() {
+      return '';
+    }
+    dispose() {}
+  }
+  class FitAddon {
+    fit() {}
+  }
+  win.Terminal = Terminal;
+  win.FitAddon = {FitAddon};
+  win.ResizeObserver = class {
+    observe() {}
+    disconnect() {}
+  };
+  win.eval(fs.readFileSync(path.join(MEDIA, 'browserTab.js'), 'utf8'));
+  win.eval(fs.readFileSync(path.join(MEDIA, 'terminalTab.js'), 'utf8'));
+}
+
+test('a file, a browser or a terminal opening slides the panel off', () => {
+  const {win} = makeWebview();
+  addBrowserAndTerminal(win);
+  const drawer = byId(win, 'meta-drawer');
+  // The agent's file (openChatAndFile) hid the panel; the drawer
+  // brings it back before each further open.
+  openChatAndFile(win);
+  assert.ok(hasClass(win, 'meta-hidden'), 'the file slid the panel off');
+  click(win, drawer);
+  assert.ok(!hasClass(win, 'meta-hidden'));
+
+  // A file picked by the user in the Explorer, i.e. one the daemon
+  // answers with the tab's own id, hides it the same way; one opened
+  // "to the side" (background) does not take the pane, so it leaves
+  // the panel alone.
+  send(win, {
+    type: 'fileContent',
+    tabId: 'a1',
+    path: '/ws/aside.md',
+    name: 'aside.md',
+    content: '# Aside',
+    version: 'v1',
+    background: true,
+  });
+  assert.ok(!hasClass(win, 'meta-hidden'), 'a background open leaves the panel');
+  send(win, {
+    type: 'fileContent',
+    tabId: 'a1',
+    path: '/ws/picked.md',
+    name: 'picked.md',
+    content: '# Picked',
+    version: 'v1',
+  });
+  assert.ok(hasClass(win, 'meta-hidden'), 'the picked file slid the panel off');
+  click(win, drawer);
+
+  send(win, {
+    type: 'openBrowserTab',
+    tab_id: 'b1',
+    url: 'https://example.com/',
+    title: 'Example',
+    focus: true,
+  });
+  const browserTab = win._testApi.openTabs().find(t => t.id === 'b1');
+  assert.ok(browserTab && browserTab.isContentTab, 'the browser opened as a content tab');
+  assert.ok(hasClass(win, 'meta-hidden'), 'the browser slid the panel off');
+  click(win, drawer);
+  assert.ok(!hasClass(win, 'meta-hidden'));
+
+  click(win, byId(win, 'terminal-btn'));
+  const termTab = win._testApi.openTabs().find(t => t.title === 'Terminal');
+  assert.ok(termTab && termTab.isContentTab, 'the terminal opened as a content tab');
+  assert.ok(hasClass(win, 'meta-hidden'), 'the terminal slid the panel off');
+});
+
+test('the shown file reopened, a successor and a desktop restore slide the panel off too', () => {
+  const {win, fireChange} = makeWebview();
+  addBrowserAndTerminal(win);
+  const drawer = byId(win, 'meta-drawer');
+  const hideBtn = byId(win, 'content-pane-hide');
+  const notes = {
+    type: 'fileContent',
+    tabId: 'a1',
+    path: '/ws/notes.md',
+    name: 'notes.md',
+    content: '# Notes',
+    version: 'v1',
+  };
+  openChatAndFile(win);
+  click(win, drawer);
+  assert.ok(!hasClass(win, 'meta-hidden'));
+  // The file already on screen, picked again in the Explorer: the
+  // reply refreshes it and still slides the panel off.
+  send(win, notes);
+  assert.ok(hasClass(win, 'meta-hidden'), 'the shown file reopened hides the panel');
+  // Folded, the same reopen unfolds the pane; a background reload of
+  // the shown file (a save echo) leaves the fold alone.
+  click(win, hideBtn);
+  send(win, Object.assign({}, notes, {background: true}));
+  assert.ok(hasClass(win, 'content-pane-folded'), 'a background reload keeps the fold');
+  send(win, notes);
+  assert.ok(hasClass(win, 'content-pane-open'), 'the shown file reopened unfolds the pane');
+  assert.ok(hasClass(win, 'meta-hidden'));
+
+  // A browser tab shown over the file, the pane folded, the browser
+  // closed by the daemon: the file takes the pane, unfolded and clear
+  // of the panel.
+  send(win, {
+    type: 'openBrowserTab',
+    tab_id: 'b1',
+    url: 'https://example.com/',
+    title: 'Example',
+    focus: true,
+  });
+  click(win, hideBtn);
+  assert.ok(hasClass(win, 'content-pane-folded'));
+  assert.ok(!hasClass(win, 'meta-hidden'));
+  send(win, {type: 'closeBrowserTab', tab_id: 'b1'});
+  assert.ok(hasClass(win, 'content-pane-open'), 'the successor unfolds the pane');
+  assert.ok(hasClass(win, 'meta-hidden'), 'and slides the panel off');
+  assert.ok(
+    win.document.querySelector('#content-tab-list .chat-tab[data-tab-id="b1"]') === null,
+  );
+
+  // The panel brought back, the window narrowed and widened again: the
+  // file restored to the pane is clear of the panel.
+  click(win, drawer);
+  assert.ok(!hasClass(win, 'meta-hidden'));
+  fireChange(false);
+  assert.ok(!hasClass(win, 'content-pane-open'));
+  fireChange(true);
+  assert.ok(hasClass(win, 'content-pane-open'), 'the file is back in the pane');
+  assert.ok(hasClass(win, 'meta-hidden'), 'the restore slides the panel off');
+});
+
+test('the hide button folds the pane away; the show tab or the next open unfolds it', () => {
+  const {win, fireChange} = makeWebview();
+  addBrowserAndTerminal(win);
+  const hideBtn = byId(win, 'content-pane-hide');
+  const showBtn = byId(win, 'content-pane-show');
+  assert.ok(hideBtn && showBtn, 'both controls are in the markup');
+  assert.ok(byId(win, 'content-tab-bar').lastElementChild === hideBtn, 'the hide button ends the tab row');
+  // Nothing to fold without a content tab.
+  click(win, hideBtn);
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+
+  const fileTab = openChatAndFile(win);
+  assert.ok(hasClass(win, 'content-pane-open'));
+  assert.ok(hasClass(win, 'meta-hidden'));
+  hideBtn.focus();
+  click(win, hideBtn);
+  assert.ok(!hasClass(win, 'content-pane-open'), 'the pane is gone');
+  assert.ok(hasClass(win, 'content-pane-folded'), 'but folded, not closed');
+  assert.ok(!hasClass(win, 'meta-hidden'), 'the panel is docked beside the chat again');
+  assert.ok(
+    win._testApi.openTabs().some(t => t.id === fileTab.id),
+    'the content tab stays open',
+  );
+  assert.strictEqual(win.document.activeElement, showBtn, 'focus moved to the show tab');
+  // Folding again is a no-op.
+  click(win, hideBtn);
+  assert.ok(hasClass(win, 'content-pane-folded'));
+
+  click(win, showBtn);
+  assert.ok(hasClass(win, 'content-pane-open'), 'the show tab unfolds the pane');
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+  assert.ok(hasClass(win, 'meta-hidden'), 'unfolded to be seen: the panel slid off');
+  assert.strictEqual(win.document.activeElement, hideBtn, 'focus moved to the hide button');
+  assert.ok(
+    win.document.querySelector('#content-tab-list .chat-tab[data-tab-id="' + fileTab.id + '"]'),
+    'the tab row still lists the file',
+  );
+
+  // Folded, a file opened in the background stays out of sight; one
+  // opened to be seen unfolds the pane and slides the panel off it.
+  click(win, hideBtn);
+  send(win, {
+    type: 'fileContent',
+    tabId: 'a1',
+    path: '/ws/aside.md',
+    name: 'aside.md',
+    content: '# Aside',
+    version: 'v1',
+    background: true,
+  });
+  assert.ok(hasClass(win, 'content-pane-folded'), 'a background open keeps the fold');
+  send(win, {
+    type: 'fileContent',
+    tabId: 'a1',
+    path: '/ws/other.md',
+    name: 'other.md',
+    content: '# Other',
+    version: 'v1',
+  });
+  assert.ok(hasClass(win, 'content-pane-open'), 'the next open unfolds the pane');
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+  assert.ok(hasClass(win, 'meta-hidden'));
+
+  // Focus elsewhere stays where it is when the pane folds.
+  byId(win, 'meta-drawer').focus();
+  click(win, hideBtn);
+  assert.ok(hasClass(win, 'content-pane-folded'));
+  assert.notStrictEqual(win.document.activeElement, showBtn);
+  click(win, showBtn);
+  assert.notStrictEqual(win.document.activeElement, hideBtn);
+
+  // Closing every content tab drops the fold.  The folded pane's tab
+  // row is out of reach, so the last tab goes the agent's way: a
+  // browser tab alone in the pane, closed from the daemon
+  // (closeBrowserTab, the close_browser tool).  The next file opened
+  // in the background then shows the pane as it did before.
+  click(win, showBtn);
+  for (const t of win._testApi.openTabs().filter(t => t.isContentTab)) {
+    closeContentTab(win, t.id);
+  }
+  assert.ok(!hasClass(win, 'content-pane-open'));
+  send(win, {
+    type: 'openBrowserTab',
+    tab_id: 'b1',
+    url: 'https://example.com/',
+    title: 'Example',
+    focus: true,
+  });
+  assert.ok(hasClass(win, 'content-pane-open'));
+  click(win, hideBtn);
+  assert.ok(hasClass(win, 'content-pane-folded'));
+  send(win, {type: 'closeBrowserTab', tab_id: 'b1'});
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+  assert.ok(!hasClass(win, 'content-pane-open'));
+  send(win, {
+    type: 'fileContent',
+    tabId: 'a1',
+    path: '/ws/later.md',
+    name: 'later.md',
+    content: '# Later',
+    version: 'v1',
+    background: true,
+  });
+  assert.ok(hasClass(win, 'content-pane-open'), 'the fold did not outlive the tabs');
+
+  // Leaving the desktop layout drops the fold too (no pane to fold).
+  click(win, hideBtn);
+  assert.ok(hasClass(win, 'content-pane-folded'));
+  fireChange(false);
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+  assert.ok(!hasClass(win, 'content-pane-open'));
 });
 
 async function main() {
