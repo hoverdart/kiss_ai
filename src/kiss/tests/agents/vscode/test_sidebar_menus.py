@@ -2409,12 +2409,12 @@ def test_history_groups_tasks_by_chat_with_day_separators(browser, harness, work
         pre_tab_ids = page.evaluate("window._testApi.openTabs().map(t => t.id)")
         # Chat panels are collapsed by default (nothing is running):
         # the header of a chat not yet summarised shows the chat's FIRST
-        # task and opens the panel.
+        # task; its "Show details" chevron opens the panel.
         group_a = page.locator(f".history-chat-group[data-chat-id='{chat_a}']")
         assert "collapsed" in (group_a.get_attribute("class") or "")
         header_a = group_a.locator(".history-chat-header")
         assert header_a.locator(".history-chat-title").inner_text() == "alpha one"
-        header_a.click()
+        header_a.locator(".history-chat-collapse").click()
         assert "collapsed" not in (group_a.get_attribute("class") or "")
         page.locator(".sidebar-item", has_text="alpha one").click()
         # Opening a history task creates a fresh REGISTERED tab; the
@@ -2502,7 +2502,7 @@ def test_history_click_survives_mid_press_refresh(browser, harness, worktree):
         # Open the collapsed chat panel so its row can be pressed; the
         # explicit expand survives the parked rebuild below.
         page.locator(
-            f".history-chat-group[data-chat-id='{chat_a}'] .history-chat-header"
+            f".history-chat-group[data-chat-id='{chat_a}'] .history-chat-collapse"
         ).click()
         row = page.locator(".sidebar-item", has_text="hold target")
         row.scroll_into_view_if_needed()

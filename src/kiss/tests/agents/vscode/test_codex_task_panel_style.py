@@ -479,16 +479,9 @@ _EXPAND_GROUP_JS = r"""
   // running): open the injected chat's panel so its row lays out.
   const g = document.querySelector('#history-list .history-chat-group');
   if (g && g.classList.contains('collapsed')) {
-    // Expanding a panel also opens the chat's last task in a tab when
-    // no tab shows the chat yet; the injected transcript lives in the
-    // original (running, so not retired) tab, so come back to it
-    // (its output is saved and restored across the switch).  Chats
-    // have no tab row: the switch is the Chats-panel pick itself.
-    const before = window.kissActiveTabId();
-    g.querySelector('.history-chat-header').click();
-    if (window.kissActiveTabId() !== before) {
-      window._testApi.switchToTab(before);
-    }
+    // The "Show details" chevron only unfolds the task rows; it opens
+    // no tab (the header itself would).
+    g.querySelector('.history-chat-collapse').click();
   }
   return g ? !g.classList.contains('collapsed') : false;
 })()

@@ -258,7 +258,7 @@ def _post_history(
     # chat across the later re-renders.
     page.evaluate(
         "() => document.querySelectorAll('#history-list "
-        ".history-chat-group.collapsed > .history-chat-header')"
+        ".history-chat-group.collapsed .history-chat-collapse')"
         ".forEach(h => h.click())"
     )
 

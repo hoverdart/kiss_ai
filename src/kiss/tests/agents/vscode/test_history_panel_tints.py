@@ -115,14 +115,17 @@ def test_chat_panel_header_is_a_quiet_neutral(_browser) -> None:
 
 _HEADER_INSET_JS = r"""(expand) => {
   const g = document.querySelector('#history-list .history-chat-group');
-  if (g.classList.contains('collapsed') === expand) {
-    g.querySelector('.history-chat-header').click();
-  }
+  const chevron = g.querySelector('.history-chat-header .history-chat-collapse');
+  if (g.classList.contains('collapsed') === expand) chevron.click();
   const h = g.querySelector('.history-chat-header');
   const gr = g.getBoundingClientRect();
   const hr = h.getBoundingClientRect();
   const hcs = getComputedStyle(h);
-  const launched = g.querySelector(':scope > .history-chat-launched');
+  const title = g.querySelector('.history-chat-title');
+  const tr = title.getBoundingClientRect();
+  const cr = chevron.getBoundingClientRect();
+  const launched = g.querySelector(
+    '.history-chat-header .history-chat-actions > .history-chat-launched');
   const lr = launched.getBoundingClientRect();
   const row = g.querySelector('.history-chat-body > .sidebar-item');
   const rr = row ? row.getBoundingClientRect() : null;
@@ -131,14 +134,18 @@ _HEADER_INSET_JS = r"""(expand) => {
     top: hr.top - (gr.top + g.clientTop),
     left: hr.left - (gr.left + g.clientLeft),
     right: gr.left + g.clientLeft + g.clientWidth - hr.right,
+    bottom: gr.top + g.clientTop + g.clientHeight - hr.bottom,
+    chevronTooltip: chevron.dataset.tooltip,
+    chevronBelowTitle: cr.top >= tr.bottom,
+    chevronLeft: cr.left - tr.left,
     launchedText: launched.textContent,
     launchedHeight: lr.height,
-    launchedGapBelowHeader: lr.top - hr.bottom,
-    bottom: gr.top + g.clientTop + g.clientHeight - lr.bottom,
+    launchedRightOfChevron: lr.left >= cr.right,
+    launchedInsideHeader: lr.bottom <= hr.bottom && lr.top >= hr.top,
     radii: [hcs.borderTopLeftRadius, hcs.borderTopRightRadius,
             hcs.borderBottomRightRadius, hcs.borderBottomLeftRadius],
     rowLeft: rr ? rr.left - (gr.left + g.clientLeft) : null,
-    rowGapBelowLaunched: rr ? rr.top - lr.bottom : null,
+    rowGapBelowHeader: rr ? rr.top - hr.bottom : null,
   };
 }"""
 
@@ -147,25 +154,31 @@ _HEADER_INSET_JS = r"""(expand) => {
 def test_chat_panel_header_meets_the_panel_border(_browser, expand: bool) -> None:
     """The header row spans the panel on every side it borders (no strip
     of bare sidebar between them), its corners follow the square panel
-    (no rounding), the chat's "last launched" line sits directly under
-    the header, and the task rows are indented behind the nesting guide."""
+    (no rounding), its action strip (the "Show details" chevron, then
+    the chat's "last launched" label) sits under the title at the
+    title's left edge as on a task panel, and the task rows the chevron
+    unfolds are indented behind the nesting guide."""
     context, page = _open_history_page(_browser)
     try:
         _post_history(page, _sample_sessions())
         probe = page.evaluate(_HEADER_INSET_JS, expand)
         assert probe["collapsed"] is not expand, probe
+        assert probe["chevronTooltip"] == ("Hide details" if expand else "Show details"), probe
         assert probe["top"] == pytest.approx(0, abs=0.5), probe
         assert probe["left"] == pytest.approx(0, abs=0.5), probe
         assert probe["right"] == pytest.approx(0, abs=0.5), probe
         assert probe["radii"] == ["0px"] * 4, probe
+        assert probe["chevronBelowTitle"] is True, probe
+        assert probe["chevronLeft"] == pytest.approx(0, abs=0.5), probe
         assert "last launched" in probe["launchedText"], probe
         assert probe["launchedHeight"] > 0, probe
-        assert probe["launchedGapBelowHeader"] == pytest.approx(0, abs=0.5), probe
+        assert probe["launchedRightOfChevron"] is True, probe
+        assert probe["launchedInsideHeader"] is True, probe
         if expand:
             # .history-chat-body: a 12px margin, the 1px guide line and
             # an 8px padding (--space-3 + 1px + --space-2).
             assert probe["rowLeft"] == pytest.approx(21, abs=0.5), probe
-            assert probe["rowGapBelowLaunched"] == pytest.approx(0, abs=0.5), probe
+            assert probe["rowGapBelowHeader"] == pytest.approx(0, abs=0.5), probe
         else:
             assert probe["bottom"] == pytest.approx(0, abs=0.5), probe
     finally:

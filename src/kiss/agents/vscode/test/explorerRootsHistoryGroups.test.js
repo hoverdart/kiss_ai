@@ -926,13 +926,24 @@ async function main() {
     );
     assert.ok(collapsed(gA), 'an idle chat starts collapsed');
     assert.ok(!collapsed(gB), 'a chat with a running task starts open');
+    // The header is no toggle: the "Show details" chevron in its
+    // action strip (as on a task panel) folds and unfolds the tasks.
+    const chevronA = gA.querySelector(
+      '.history-chat-header > .history-chat-actions > .history-chat-collapse',
+    );
+    assert.ok(chevronA, 'the chat panel carries a Show details chevron');
+    assert.strictEqual(chevronA.getAttribute('aria-expanded'), 'false');
+    assert.strictEqual(chevronA.dataset.tooltip, 'Show details');
     assert.strictEqual(
       gA.querySelector('.history-chat-header').getAttribute('aria-expanded'),
-      'false',
+      null,
+      'the header itself carries no expanded state',
     );
     // The user opens A: the choice survives a re-render.
-    gA.querySelector('.history-chat-header').click();
-    assert.ok(!collapsed(gA), 'header click expands the panel');
+    chevronA.click();
+    assert.ok(!collapsed(gA), 'the chevron expands the panel');
+    assert.strictEqual(chevronA.getAttribute('aria-expanded'), 'true');
+    assert.strictEqual(chevronA.dataset.tooltip, 'Hide details');
     sendHistory(win, posted, 0, [
       Object.assign(session('A', 'a2', todayNoon), {
         chat_first_task: 'first task of A',
@@ -946,8 +957,8 @@ async function main() {
       "B's task finished and the user never toggled it: collapsed again",
     );
     // Collapsing hides the body, not the block.
-    gA.querySelector('.history-chat-header').click();
-    assert.ok(collapsed(gA), 'header click collapses the panel again');
+    gA.querySelector('.history-chat-collapse').click();
+    assert.ok(collapsed(gA), 'the chevron collapses the panel again');
     assert.ok(
       gA.querySelector(':scope > .history-chat-body .sidebar-item'),
       'the rows stay in the DOM under the collapsed header',
@@ -981,9 +992,9 @@ async function main() {
     assert.strictEqual(title(gB), 'first task of B');
     assert.strictEqual(title(gC), 'task c1');
     assert.strictEqual(
-      gA.querySelector('.history-chat-header').textContent.trim(),
+      gA.querySelector('.history-chat-header').getAttribute('aria-label'),
       'Fix login and add tests',
-      "the summary is the header button's accessible name",
+      "the summary is the header's accessible name (not the action strip)",
     );
     // B's task finishes and the daemon summarises the chat: the next
     // refresh renames the panel. A summary of only whitespace does not
@@ -1037,8 +1048,8 @@ async function main() {
     let [gA, gB] = groups(win);
     // The user explicitly collapses A (expand + collapse stores the
     // choice), which must NOT hide A's matches inside a later search.
-    gA.querySelector('.history-chat-header').click();
-    gA.querySelector('.history-chat-header').click();
+    gA.querySelector('.history-chat-collapse').click();
+    gA.querySelector('.history-chat-collapse').click();
     assert.ok(collapsed(gA));
     setSearch('task');
     // The search's results equal the loaded page, so the reply lands
@@ -1051,7 +1062,7 @@ async function main() {
     );
     assert.ok(!collapsed(gB), 'B expands for the search too');
     // A collapse DURING the search applies to the search view only.
-    gA.querySelector('.history-chat-header').click();
+    gA.querySelector('.history-chat-collapse').click();
     assert.ok(collapsed(gA), 'the panel can still be folded mid-search');
     // A changed-data rebuild while the SAME query stands (any task on
     // the daemon persisted a result) keeps the in-search fold.

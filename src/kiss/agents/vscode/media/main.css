@@ -4037,15 +4037,22 @@ body.pdf-preview-body {
   border-top: 1px solid color-mix(in srgb, var(--fg) 6%, transparent);
 }
 
-/* The chat panel's clickable header: a chevron and the chat's first
-   task on ONE line (ellipsized), as a plain row on the list's own
-   background (a list of many chats must not become a stack of bands;
-   the accent is reserved for the active row).  No tooltip: the line is
-   all there is. */
+/* The chat panel's header, laid out like a task panel: the chat's
+   title on ONE line (ellipsized), then the action strip ("Show
+   details" chevron, "last launched ... ago") on the next.  A plain row
+   on the list's own background (a list of many chats must not become
+   a stack of bands; the accent is reserved for the active row).  No
+   tooltip: the line is all there is.  Clicking the row opens the chat;
+   only the chevron folds the task panels under it.
+   A two-column grid: the last task's status icon (when there is one)
+   in the first column, the title and the action strip stacked in the
+   second, so the strip starts under the title's first letter whether
+   or not an icon precedes it. */
 .history-chat-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-1-5);
+  row-gap: var(--space-1);
   width: 100%;
   background: transparent;
   border: none;
@@ -4065,45 +4072,43 @@ body.pdf-preview-body {
   background: color-mix(in srgb, var(--fg) 5%, transparent);
 }
 
-.history-chat-chevron {
-  flex-shrink: 0;
-  color: var(--dim);
-  transition: transform var(--dur-base) var(--ease);
-}
-
-.history-chat-group:not(.collapsed) > .history-chat-header .history-chat-chevron {
-  transform: rotate(90deg);
-}
-
 /* The status icon of the chat's last task (the same "?", spinner,
-   cross or tick its row shows), between the chevron and the title; the
-   header's gap spaces it, not the row icons' margin. */
+   cross or tick its row shows), in the first column before the title.
+   Its own margin spaces it (a grid column-gap would also open up the
+   empty column of an icon-less header). */
 .history-chat-header > .history-chat-status {
-  flex-shrink: 0;
-  margin-right: 0;
+  grid-column: 1;
+  margin-right: var(--space-1-5);
 }
 
 .history-chat-title {
-  flex: 1;
+  grid-column: 2;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* The line under the chat header: when the chat's latest task was
-   launched, in the task panels' "... ago" age-label style. Indented to
-   the header's title column; empty until the daemon's stamp arrives. */
+/* The action strip under the title, a line of its own like a task
+   panel's (.running-item > .sidebar-item-actions): the "Show details"
+   chevron (turned over while the task panels show) and the "last
+   launched ... ago" age label. */
+.history-chat-header > .history-chat-actions {
+  grid-column: 2;
+  margin-left: 0;
+}
+
+.history-chat-group:not(.collapsed) > .history-chat-header .history-chat-collapse svg {
+  transform: rotate(180deg);
+}
+
 .history-chat-launched {
   display: flex;
   min-width: 0;
-  padding: 0 var(--space-2-5) var(--space-1) calc(var(--space-2) + 12px + var(--space-1-5));
   line-height: 1.35;
 }
 
 .history-chat-launched:empty { display: none; }
-
-.history-chat-launched > .sidebar-item-launched { margin-left: 0; }
 
 /* The chat's task rows, indented under the header behind a hairline
    guide so the nesting reads without a tinted band. */

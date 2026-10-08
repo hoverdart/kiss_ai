@@ -354,9 +354,12 @@ function testFoldedChat() {
   assert.ok(!collapsed(win, 'chat-1'));
   const header = () =>
     group(win, 'chat-1').querySelector(':scope > .history-chat-header');
-  header().dispatchEvent(
-    new win.MouseEvent('click', {bubbles: true, cancelable: true}),
-  );
+  // The header's "Show details" chevron folds the chat.
+  header()
+    .querySelector('.history-chat-collapse')
+    .dispatchEvent(
+      new win.MouseEvent('click', {bubbles: true, cancelable: true}),
+    );
   assert.ok(collapsed(win, 'chat-1'), 'the user folded the chat they look at');
 
   // A rebuild keeps that fold; the rebuild's scroll lands on the

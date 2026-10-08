@@ -17128,7 +17128,6 @@
         const hasTaskId =
           ev.taskId !== undefined && ev.taskId !== null && ev.taskId !== '';
         const ocTab = chatId ? getTabByBackendChatId(chatId) : null;
-        if (ocTab && ev.onlyIfMissing) break;
         const ocLeft = getTab(activeTabId);
         if (ocTab) {
           switchToTab(ocTab.id);
@@ -22047,13 +22046,16 @@
     );
   }
 
+  // The "Show details" chevron of a task panel and of a chat panel.
+  const SIDEBAR_COLLAPSE_SVG =
+    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
   function makeSidebarCollapseToggle(itemDiv, session) {
     const key = historyCollapseKey(session);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'sidebar-item-collapse';
-    btn.innerHTML =
-      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    btn.innerHTML = SIDEBAR_COLLAPSE_SVG;
     const applyCollapseState = () => {
       const collapsed = !historyExpandedTaskKeys.has(key);
       itemDiv.classList.toggle('collapsed', collapsed);
@@ -22530,14 +22532,25 @@
       });
   }
 
-  /** Repaint *group*'s collapsed class and its header's ARIA state. */
+  /**
+   * Repaint *group*'s collapsed class and its "Show details" chevron
+   * (tooltip, label and ARIA state), as a task panel's chevron reads.
+   * The header carries no tooltip (neither data-tooltip nor title):
+   * its one line of text is the whole of what it shows.
+   */
   function applyHistoryGroupCollapsed(group) {
     const collapsed = historyGroupCollapsed(group);
     group.classList.toggle('collapsed', collapsed);
-    // The header carries no tooltip (neither data-tooltip nor title):
-    // its one line of text is the whole of what it shows.
-    const btn = group.querySelector(':scope > .history-chat-header');
-    if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    const btn = group.querySelector(
+      ':scope > .history-chat-header .history-chat-collapse',
+    );
+    if (!btn) return;
+    btn.dataset.tooltip = collapsed ? 'Show details' : 'Hide details';
+    btn.setAttribute(
+      'aria-label',
+      collapsed ? "Show the chat's tasks" : "Hide the chat's tasks",
+    );
+    btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   }
 
   /**
@@ -22575,7 +22588,12 @@
         .split('\n')
         .map(l => l.trim())
         .filter(Boolean)[0] || 'Untitled';
-    if (titleEl.textContent !== text) titleEl.textContent = text;
+    if (titleEl.textContent === text) return;
+    titleEl.textContent = text;
+    // The title alone names the header for screen readers: without the
+    // label the name would run on into the chevron's and the "last
+    // launched" line's text.
+    titleEl.parentElement.setAttribute('aria-label', text);
   }
 
   /**
@@ -22585,7 +22603,9 @@
    * yet summarised) the line follows the newest row loaded so far.
    */
   function updateHistoryGroupLaunched(group, session) {
-    const line = group.querySelector(':scope > .history-chat-launched');
+    const line = group.querySelector(
+      ':scope > .history-chat-header .history-chat-launched',
+    );
     if (!line) return;
     const stamped = Number(session.chat_last_launched || 0);
     const rowMs = taskLaunchMs(session);
@@ -22673,21 +22693,18 @@
    * A task with nothing to resume is shown read-only in a fresh tab.
    *
    * @param {Object} s The history row from the daemon.
-   * @param {boolean} onlyIfMissing Leave a tab already bound to the
-   *   chat as it is (the host does the same for its editor panels):
-   *   an expanded history panel only wants the chat on screen. The
-   *   chat is then always resumed by id, even for a task without
-   *   persisted events: a read-only tab would bind to no chat, so the
-   *   next expand could not tell the chat is on screen already.
+   * @param {boolean} wholeChat The click was on the CHAT's panel (its
+   *   row *s* is the chat's last task): the chat is always resumed by
+   *   id, even when that task has no persisted events — a read-only
+   *   tab would bind to no chat, so a second click could not find the
+   *   chat on screen.
    */
-  function openHistoryTask(s, onlyIfMissing) {
+  function openHistoryTask(s, wholeChat) {
     // The task text goes to the read-only task panel only.  #task-input
     // holds the user's own draft for the NEXT prompt and is never written.
     const taskText = s.preview || s.title || '';
     const existingChatTab = getTabByBackendChatId(s.id);
-    if (onlyIfMissing && existingChatTab) return;
-    const resumable =
-      !!s.id && (s.has_events || s.is_running || !!onlyIfMissing);
+    const resumable = !!s.id && (s.has_events || s.is_running || !!wholeChat);
     // Editor-tabs mode: a chat that is not THIS panel's belongs in
     // its own editor tab. The host either reveals the panel already
     // bound to the chat or opens a new one that resumes it.
@@ -22698,7 +22715,6 @@
         taskId:
           s.task_id === undefined || s.task_id === null ? null : s.task_id,
         title: taskText,
-        onlyIfMissing: !!onlyIfMissing,
       });
       return;
     }
@@ -22738,19 +22754,16 @@
     }
   }
 
-  /** Build the collapsible chat panel's clickable header. */
-  function historyGroupHeader(group, chatId) {
+  /**
+   * The chat panel's "Show details" chevron: the same control a task
+   * panel carries, here unfolding the chat's task panels underneath.
+   * It is the only thing that folds or unfolds the panel.
+   */
+  function historyGroupDetailsToggle(group, chatId) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'history-chat-header';
-    // No fixed aria-label: the title span (chat summary or first task)
-    // IS the button's accessible name, so screen readers can tell the
-    // chats apart (aria-expanded carries the toggle state).
-    btn.innerHTML =
-      '<svg class="history-chat-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
-    const titleEl = document.createElement('span');
-    titleEl.className = 'history-chat-title';
-    btn.appendChild(titleEl);
+    btn.className = 'sidebar-item-collapse history-chat-collapse';
+    btn.innerHTML = SIDEBAR_COLLAPSE_SVG;
     btn.addEventListener('click', e => {
       e.stopPropagation();
       e.preventDefault();
@@ -22765,14 +22778,53 @@
         if (chatId) historyChatCollapseOverrides.set(chatId, collapsed);
       }
       applyHistoryGroupCollapsed(group);
-      // Expanding a chat's panel also brings the chat on screen: its
-      // last task is loaded in a tab unless a tab already shows the
-      // chat (the panel stays open so the tasks remain in view).
-      if (!collapsed && group._kissLastSession) {
-        openHistoryTask(group._kissLastSession, true);
-      }
     });
     return btn;
+  }
+
+  /**
+   * Build the chat panel's header, laid out like a task panel: the
+   * chat's title (behind its last task's status icon) on the first
+   * line, then the action strip with the "Show details" chevron and
+   * the "last launched ... ago" label.  Clicking the header brings
+   * the chat on screen (its last task, as a task row click does);
+   * it never folds the panel.
+   */
+  function historyGroupHeader(group, chatId) {
+    const header = document.createElement('div');
+    header.className = 'history-chat-header';
+    header.tabIndex = 0;
+    header.setAttribute('role', 'button');
+    // The title (chat summary or first task) becomes the header's
+    // aria-label as it is painted (updateHistoryGroupHeader), so screen
+    // readers can tell the chats apart.
+    const titleEl = document.createElement('span');
+    titleEl.className = 'history-chat-title';
+    header.appendChild(titleEl);
+    const actions = document.createElement('div');
+    actions.className = 'sidebar-item-actions history-chat-actions';
+    actions.appendChild(historyGroupDetailsToggle(group, chatId));
+    // After the chevron: when the chat's latest task was launched
+    // (filled by updateHistoryGroupLaunched).
+    const launched = document.createElement('span');
+    launched.className = 'history-chat-launched';
+    actions.appendChild(launched);
+    header.appendChild(actions);
+    header.addEventListener('keydown', e => {
+      if (e.target !== header) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        header.click();
+      }
+    });
+    header.addEventListener('click', e => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (!group._kissLastSession) return;
+      openHistoryTask(group._kissLastSession, true);
+      closeSidebar();
+    });
+    return header;
   }
 
   function historyGroupFor(session) {
@@ -22797,11 +22849,6 @@
     // The chat's latest task time decides its day bucket.
     group.dataset.ts = String(ts);
     group.appendChild(historyGroupHeader(group, chatId));
-    // The line under the header: when the chat's latest task was
-    // launched (filled by updateHistoryGroupLaunched).
-    const launched = document.createElement('div');
-    launched.className = 'history-chat-launched';
-    group.appendChild(launched);
     const body = document.createElement('div');
     body.className = 'history-chat-body';
     group.appendChild(body);
@@ -23255,6 +23302,7 @@
     let focusCtrlClass = '';
     let focusCtrlNth = -1;
     let focusHeaderChatId = '';
+    let focusHeaderChevron = false;
     if (offset === 0) {
       // A refresh that returns exactly what is already on screen keeps
       // the existing DOM.  `tasks_updated` broadcasts arrive whenever
@@ -23322,8 +23370,9 @@
       // action stays under Space/Enter after the rebuild (the control
       // is identified by its first class among same-class siblings).
       const active = document.activeElement;
-      // A focused chat-panel header survives the rebuild too: its
-      // group is found again by chat id after the fresh render.
+      // A focused chat-panel header (or its Show details chevron)
+      // survives the rebuild too: its group is found again by chat id
+      // after the fresh render.
       const activeHeader =
         active && active.closest
           ? active.closest('#history-list .history-chat-header')
@@ -23331,6 +23380,7 @@
       if (activeHeader) {
         const headerGroup = activeHeader.closest('.history-chat-group');
         focusHeaderChatId = (headerGroup && headerGroup.dataset.chatId) || '';
+        focusHeaderChevron = active.classList.contains('history-chat-collapse');
       }
       const activeRow =
         active && active.closest
@@ -23600,12 +23650,17 @@
         target.focus({preventScroll: true});
       }
     } else if (focusHeaderChatId) {
-      // Likewise for a focused chat-panel header: focus the fresh
-      // header of the same chat so Space/Enter keeps toggling it.
+      // Likewise for a focused chat-panel header or its chevron: focus
+      // the same control of the same chat's fresh header so Space/Enter
+      // keeps doing what it did.
       const headerGroup = historyChatGroups.get(focusHeaderChatId);
       const headerBtn =
         headerGroup &&
-        headerGroup.querySelector(':scope > .history-chat-header');
+        headerGroup.querySelector(
+          focusHeaderChevron
+            ? ':scope > .history-chat-header .history-chat-collapse'
+            : ':scope > .history-chat-header',
+        );
       if (headerBtn) headerBtn.focus({preventScroll: true});
     }
   }
