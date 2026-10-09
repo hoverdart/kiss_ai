@@ -406,10 +406,12 @@ body {
 
 /* The server's machine name, centred at the top of the chat pane in
    bold green on every chat surface (main.js fills it from
-   configData.machine); the strip takes no room until it has a name. */
+   configData.machine); the strip takes no room until it has a name.
+   The same hairline as the tab rows parts it from the transcript. */
 #chat-machine {
   flex-shrink: 0;
   padding: var(--space-0-5) var(--space-3);
+  border-bottom: 1px solid var(--border);
   text-align: center;
   font-size: var(--fs-base);
   font-weight: 700;

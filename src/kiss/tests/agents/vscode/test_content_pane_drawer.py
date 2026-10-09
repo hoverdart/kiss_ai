@@ -148,6 +148,59 @@ def test_machine_name_sits_in_bold_green_at_the_top_centre_of_the_chat(browser, 
         context.close()
 
 
+_BORDER_JS = """sel => {
+  const cs = getComputedStyle(document.querySelector(sel));
+  return [cs.borderBottomWidth, cs.borderBottomStyle, cs.borderBottomColor];
+}"""
+
+
+def test_machine_name_is_parted_from_the_chat_by_the_same_hairline_as_the_tab_rows(
+    browser, harness
+):
+    """The strip ends in the 1px border every other boundary of the page
+    uses, and with a file open that hairline runs on from the content
+    tab row's: both rows end at the same height."""
+    context, page, _ = _open_page(browser, harness)
+    try:
+        page.wait_for_function(
+            "document.getElementById('chat-machine').textContent.length > 0",
+            timeout=15000,
+        )
+        border = page.evaluate(_BORDER_JS, "#chat-machine")
+        assert border[0] == "1px" and border[1] == "solid"
+        # The chat alone: the hairline is the only thing between the
+        # name and the transcript.
+        machine = _rect(page, "#chat-machine")
+        output = _rect(page, "#output")
+        assert machine["bottom"] == pytest.approx(output["top"], abs=1)
+
+        _open_file(page)
+        assert page.evaluate(_BORDER_JS, "#content-tab-bar") == border
+        machine = _rect(page, "#chat-machine")
+        tabs = _rect(page, "#content-tab-bar")
+        assert machine["top"] == pytest.approx(tabs["top"], abs=1)
+        assert machine["bottom"] == pytest.approx(tabs["bottom"], abs=1)
+        # The name sits at the shared row's vertical centre, in one
+        # line that still ellipsizes (a flex or grid strip would not).
+        text = page.evaluate(
+            """() => {
+              const el = document.getElementById('chat-machine');
+              const r = document.createRange();
+              r.selectNodeContents(el);
+              const t = r.getBoundingClientRect();
+              const b = el.getBoundingClientRect();
+              return {mid: (t.top + t.bottom) / 2 - (b.top + b.bottom) / 2,
+                      display: getComputedStyle(el).display,
+                      overflow: getComputedStyle(el).textOverflow};
+            }"""
+        )
+        assert abs(text["mid"]) <= 2
+        assert text["display"] == "block"
+        assert text["overflow"] == "ellipsis"
+    finally:
+        context.close()
+
+
 def test_click_in_the_pane_hides_the_panel_and_the_drawer_brings_it_back(browser, harness):
     context, page, _ = _open_page(browser, harness)
     try:
