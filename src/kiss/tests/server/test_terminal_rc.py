@@ -42,6 +42,8 @@ pytestmark = pytest.mark.skipif(
 
 _UP = "\x1b[A"
 _ANSI = re.compile(r"\x1b\][^\x07]*\x07|\x1b\[[0-9;?]*[A-Za-z]|\x1b[=>]")
+# Output that ends with a shell prompt: the line editor is waiting for input.
+_PROMPT = re.compile(r"[$%#] $")
 
 
 def _plain(text: str) -> str:
@@ -164,9 +166,15 @@ class ConnPrinter:
             seen = [(e["type"], e.get("tab_id"), e.get("data", "")) for e in self.events]
         raise AssertionError(f"timed out waiting for terminal events; got {seen!r}")
 
-    def wait_for_output(self, tab_id: str, marker: str, count: int = 1) -> str:
-        self.wait_for(lambda: self.output(tab_id).count(marker) >= count)
-        return self.output(tab_id)
+    def ran(self, tab_id: str, start: int, marker: str) -> bool:
+        """Whether a command typed when the output was *start* long has run.
+
+        The shell echoes the typed line before running it, so *marker*
+        may show up in the echo first; the command is done only once the
+        prompt is back after the marker.
+        """
+        new = self.output(tab_id)[start:]
+        return marker in new and _PROMPT.search(new) is not None
 
 
 class Tabs:
@@ -180,12 +188,14 @@ class Tabs:
     def open(self, tab_id: str) -> None:
         """Open *tab_id* and wait for its first prompt (the line editor is up)."""
         self.svc.open(tab_id, "conn", self.work_dir, 200, 24)
-        self.printer.wait_for(lambda: re.search(r"[$%#] $", self.printer.output(tab_id)))
+        self.printer.wait_for(lambda: _PROMPT.search(self.printer.output(tab_id)))
 
-    def run(self, tab_id: str, line: str, marker: str, count: int = 1) -> str:
-        """Type *line* + Enter; wait until *marker* has shown *count* times."""
+    def run(self, tab_id: str, line: str, marker: str) -> str:
+        """Type *line* + Enter; wait until the command has run and printed *marker*."""
+        start = len(self.printer.output(tab_id))
         self.svc.input(tab_id, "conn", line + "\n")
-        return self.printer.wait_for_output(tab_id, marker, count)
+        self.printer.wait_for(lambda: self.printer.ran(tab_id, start, marker))
+        return self.printer.output(tab_id)
 
     def close(self) -> None:
         self.svc.shutdown()
