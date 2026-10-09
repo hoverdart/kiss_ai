@@ -131,7 +131,7 @@ sense stays when no plain word means the same thing ("leverage" in a piece on de
 """ """\
 
 
-## Lessons from recent runs (rsi)
+## Lessons from recent runs (rsi7d)
 
 - Run Python through `uv run python` (or `uv run python - <<'PY'`): `python` is not on
   PATH and `python3` cannot import the project's packages, so a check script run with

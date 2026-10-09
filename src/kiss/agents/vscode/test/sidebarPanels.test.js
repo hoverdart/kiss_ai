@@ -399,13 +399,13 @@ async function main() {
       // clipboard and the tooltip get it verbatim, never a summary.
       const prompt =
         'Call the run_agent tool IMMEDIATELY with:\n' +
-        "  agent = 'src/kiss/agents/seas/rsi_sea.py'\n" +
+        "  agent = 'src/kiss/agents/seas/rsi7d_sea.py'\n" +
         '  task  = "all. Work inside this checkout."\n\n' +
         'Use \'claude-fable-5-1\' for all tasks.';
       send(win, {
         type: 'cronJobs',
         jobs: [
-          job({id: 'p', name: 'Weekly rsi', what: prompt, lastStatus: 'ok in 12m'}),
+          job({id: 'p', name: 'Weekly rsi7d', what: prompt, lastStatus: 'ok in 12m'}),
           job({id: 'c', name: 'Sync', kind: 'command', what: 'rsync -a src dst'}),
           job({id: 'n', name: 'No text', what: null}),
         ],

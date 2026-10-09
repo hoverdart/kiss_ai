@@ -69,7 +69,7 @@ Rules you MUST follow:
 """ """\
 
 
-## Lessons from recent runs (rsi)
+## Lessons from recent runs (rsi7d)
 
 - Open each conflicted file with the `Read` tool (the region around every conflict
   block) before its first `Edit`. Looking at the file through `git diff`, `grep` or

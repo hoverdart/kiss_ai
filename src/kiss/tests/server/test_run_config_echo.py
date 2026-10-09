@@ -9,7 +9,7 @@
 summary}``; nothing told the calling model that the SEA
 replaced the ``tool_profile`` it asked for, which values the sub-task
 inherited, or what budget it ran with, and nothing persisted that
-record for ``rsi`` to mine.  Now the daemon folds the effective
+record for ``rsi7d`` to mine.  Now the daemon folds the effective
 configuration into the task's ``task_settings`` event, the client
 reads it back, and both tools put a ``ran:`` line first.
 

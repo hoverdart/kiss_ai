@@ -430,21 +430,21 @@ the main checkout when the tests run inside a linked task worktree."""
 def test_kiss_checkout_walks_up_to_the_checkout_and_rejects_other_dirs(tmp_path: Path) -> None:
     """Any directory inside the checkout maps to its root; foreign dirs and '' map to ''."""
     owner = Path(_OWNER)
-    assert (owner / ".git").is_dir() and (owner / autorouter_sea.RSI_SEA_RELATIVE).is_file()
+    assert (owner / ".git").is_dir() and (owner / autorouter_sea.RSI7D_SEA_RELATIVE).is_file()
     assert _OWNER in (str(_CHECKOUT), str(autorouter_sea._owning_checkout(_CHECKOUT)))
     assert autorouter_sea.kiss_checkout(str(_SEA_PATH.parent)) == _OWNER
     assert autorouter_sea.kiss_checkout(str(tmp_path)) == ""
     assert autorouter_sea.kiss_checkout("") == ""
     # The SEA tree without a ``.git`` marker is not a checkout either.
     copy = tmp_path / "copy"
-    (copy / autorouter_sea.RSI_SEA_RELATIVE).parent.mkdir(parents=True)
-    (copy / autorouter_sea.RSI_SEA_RELATIVE).write_text("", encoding="utf-8")
+    (copy / autorouter_sea.RSI7D_SEA_RELATIVE).parent.mkdir(parents=True)
+    (copy / autorouter_sea.RSI7D_SEA_RELATIVE).write_text("", encoding="utf-8")
     assert autorouter_sea.kiss_checkout(str(copy)) == ""
     (copy / ".git").write_text("gitdir: elsewhere\n", encoding="utf-8")
     assert autorouter_sea.kiss_checkout(str(copy / "src")) == str(copy)
 
 
-def test_picking_autorouter_schedules_one_enabled_weekly_rsi_job_and_resumes_a_paused_one(
+def test_picking_autorouter_schedules_one_enabled_weekly_rsi7d_job_and_resumes_a_paused_one(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The hook creates the job once, keeps an enabled one, and re-enables a paused one.
@@ -452,10 +452,10 @@ def test_picking_autorouter_schedules_one_enabled_weekly_rsi_job_and_resumes_a_p
     The cron store is the real one under a temporary ``$KISS_HOME``; the
     job is the relay pattern of the hand-scheduled weekly sweep: worktree
     plus auto-commit in the checkout, a ``run_agent`` directive to the
-    checkout's rsi file whose task text starts with the ``autorouter``
+    checkout's rsi7d file whose task text starts with the ``autorouter``
     scope, and the child run's caps nested inside the job's.
     """
-    from kiss.agents.seas.rsi.rsi_sea import parse_scope
+    from kiss.agents.seas.rsi7d.rsi7d_sea import parse_scope
     from kiss.agents.sorcar.cron_agent import cron_job, load_jobs
 
     home = tmp_path / "home"
@@ -465,25 +465,25 @@ def test_picking_autorouter_schedules_one_enabled_weekly_rsi_job_and_resumes_a_p
     created = AutorouterSea().on_picked_as_model(str(_SEA_PATH.parent))
     assert created.startswith("created:"), created
     (job,) = load_jobs()
-    assert job["name"] == autorouter_sea.RSI_JOB_NAME
+    assert job["name"] == autorouter_sea.RSI7D_JOB_NAME
     assert job["enabled"] is True
-    assert job["schedule"] == autorouter_sea.RSI_JOB_SCHEDULE == "0 1 * * 6"
+    assert job["schedule"] == autorouter_sea.RSI7D_JOB_SCHEDULE == "0 1 * * 6"
     assert job["work_dir"] == _OWNER
     assert job["use_worktree"] is True and job["auto_commit"] is True
     assert job["max_budget"] == 30.0 and job["timeout"] == 7800.0
     assert job["model_name"] in (
-        autorouter_sea.RSI_JOB_MODEL, autorouter_sea.orchestrator_model(),
+        autorouter_sea.RSI7D_JOB_MODEL, autorouter_sea.orchestrator_model(),
     )
     assert job["model_name"] in get_available_models()
     prompt = job["prompt"]
     assert prompt.startswith("Call the run_agent tool IMMEDIATELY")
-    assert f"agent        = {autorouter_sea.RSI_SEA_RELATIVE!r}" in prompt
-    assert f"task         = {autorouter_sea.RSI_TASK!r}" in prompt
+    assert f"agent        = {autorouter_sea.RSI7D_SEA_RELATIVE!r}" in prompt
+    assert f"task         = {autorouter_sea.RSI7D_TASK!r}" in prompt
     assert "timeout      = '7200'" in prompt and "max_budget   = '25.0'" in prompt
     assert f"model        = {job['model_name']!r}" in prompt
     assert "options      = '{\"use_worktree\": false, \"auto_commit\": false}'" in prompt
     assert "model_name" not in prompt
-    scope = parse_scope(autorouter_sea.RSI_TASK)
+    scope = parse_scope(autorouter_sea.RSI7D_TASK)
     assert scope.names == ("autorouter",) and scope.error == ""
 
     # A second pick (from another directory of the checkout) changes nothing.
@@ -503,14 +503,14 @@ def test_picking_autorouter_schedules_one_enabled_weekly_rsi_job_and_resumes_a_p
 def test_picking_autorouter_outside_a_checkout_schedules_a_scratch_dir_job(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Without a checkout: no work dir, no worktree, and a relay to the installed rsi file."""
+    """Without a checkout: no work dir, no worktree, and a relay to the installed rsi7d file."""
     from kiss.agents.sorcar.cron_agent import load_jobs
 
     monkeypatch.setenv("KISS_HOME", str(tmp_path / "home"))
     assert AutorouterSea().on_picked_as_model(str(tmp_path)).startswith("created:")
     (job,) = load_jobs()
     assert job["work_dir"] == "" and job["use_worktree"] is False and job["auto_commit"] is False
-    installed = _SEA_PATH.parents[1] / "rsi" / "rsi_sea.py"
+    installed = _SEA_PATH.parents[1] / "rsi7d" / "rsi7d_sea.py"
     assert installed.is_file()
     assert f"agent        = {str(installed)!r}" in job["prompt"]
 
@@ -520,8 +520,8 @@ def test_kiss_checkout_resolves_a_linked_worktree_to_its_owning_checkout(tmp_pat
     import subprocess
 
     repo = tmp_path / "repo"
-    (repo / autorouter_sea.RSI_SEA_RELATIVE).parent.mkdir(parents=True)
-    (repo / autorouter_sea.RSI_SEA_RELATIVE).write_text("", encoding="utf-8")
+    (repo / autorouter_sea.RSI7D_SEA_RELATIVE).parent.mkdir(parents=True)
+    (repo / autorouter_sea.RSI7D_SEA_RELATIVE).write_text("", encoding="utf-8")
     env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@t", "PATH": __import__("os").environ["PATH"]}
     for args in (["init", "-q"], ["add", "."], ["commit", "-q", "-m", "seas"],
@@ -532,8 +532,8 @@ def test_kiss_checkout_resolves_a_linked_worktree_to_its_owning_checkout(tmp_pat
     assert autorouter_sea.kiss_checkout(str(worktree / "src")) == str(repo.resolve())
     # A ``.git`` file that is not a linked worktree's stays where it is.
     other = tmp_path / "other"
-    (other / autorouter_sea.RSI_SEA_RELATIVE).parent.mkdir(parents=True)
-    (other / autorouter_sea.RSI_SEA_RELATIVE).write_text("", encoding="utf-8")
+    (other / autorouter_sea.RSI7D_SEA_RELATIVE).parent.mkdir(parents=True)
+    (other / autorouter_sea.RSI7D_SEA_RELATIVE).write_text("", encoding="utf-8")
     (other / ".git").write_text("gitdir: /somewhere/else\n", encoding="utf-8")
     assert autorouter_sea.kiss_checkout(str(other)) == str(other.resolve())
 
@@ -575,8 +575,8 @@ def test_concurrent_first_picks_schedule_a_single_job(
 def test_kiss_checkout_resolves_a_relative_gitdir_against_the_worktree(tmp_path: Path) -> None:
     """``gitdir: ../repo/.git/worktrees/wt`` names the checkout relative to the worktree."""
     repo = tmp_path / "repo"
-    (repo / autorouter_sea.RSI_SEA_RELATIVE).parent.mkdir(parents=True)
-    (repo / autorouter_sea.RSI_SEA_RELATIVE).write_text("", encoding="utf-8")
+    (repo / autorouter_sea.RSI7D_SEA_RELATIVE).parent.mkdir(parents=True)
+    (repo / autorouter_sea.RSI7D_SEA_RELATIVE).write_text("", encoding="utf-8")
     (repo / ".git").mkdir()
     worktree = tmp_path / "wt"
     worktree.mkdir()

@@ -14,7 +14,7 @@ renders them four ways:
 
 * :func:`transcript_page` — a clipped, optionally filtered page of
   entries (the ``task_transcript`` tool of the task-update and
-  ``rsi`` agents);
+  ``rsi7d`` agents);
 * :func:`overview` — everything needed to orient in one call: the
   header, sub-agent tasks, later user messages, previous ``/ask``
   answers, the task's own progress summaries and its latest entries;

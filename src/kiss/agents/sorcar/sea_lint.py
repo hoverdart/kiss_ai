@@ -82,7 +82,7 @@ Rules, each a :class:`Finding` code:
 
 Cost and duration rules (a ``max_budget`` below the script's observed
 cost, a ``timeout`` below its observed duration) need the task history
-and live in the ``rsi`` settings tuner, not here: this checker is
+and live in the ``rsi7d`` settings tuner, not here: this checker is
 environment-free so that ``uv run check`` is deterministic.
 """
 

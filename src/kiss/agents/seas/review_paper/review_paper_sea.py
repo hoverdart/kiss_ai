@@ -266,7 +266,7 @@ and what you did with it, and anything the paper claims that you could not verif
 """ """\
 
 
-## Lessons from recent runs (rsi)
+## Lessons from recent runs (rsi7d)
 
 - You are the reviewer. Never finish unsuccessfully because `run_agent` or `run_parallel`
   is missing: read the paper and write the review yourself. When `run_parallel` is absent

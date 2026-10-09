@@ -109,7 +109,7 @@
 #      and does not travel; the next agent to open the memory rebuilds it
 #      from the pages.
 #   4d. Sync the autorouter's notes both ways: ~/.kiss/AUTOROUTER.md (the
-#      observed model evidence /rsi writes and the autorouter SEA splices
+#      observed model evidence /rsi7d writes and the autorouter SEA splices
 #      into its prompt) and ~/.kiss/MODEL_DECISIONS.md (the routing ledger).
 #      src/kiss/scripts/sync_kiss_notes.py merges them by meaning -- the
 #      evidence with the later "refreshed" date wins, two copies of the same
@@ -626,7 +626,7 @@ bash "$SCRIPT_DIR/scripts/sync-memory.sh" "$TARGET" \
 
 # ---------------------------------------------------------------------------
 # 4d. Sync the autorouter's notes both ways: ~/.kiss/AUTOROUTER.md (the
-#     observed model evidence /rsi measures from the task history and the
+#     observed model evidence /rsi7d measures from the task history and the
 #     autorouter SEA splices into its prompt) and ~/.kiss/MODEL_DECISIONS.md
 #     (the routing ledger every autorouter task appends to).  A copy would
 #     clobber what the other machine wrote, so src/kiss/scripts/sync_kiss_notes.py

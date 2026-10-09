@@ -2,7 +2,7 @@
 # Contributors:
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
-"""E2E: rsi's ``replay_in_clone`` / ``replay_in_place`` replay a past task through the daemon.
+"""E2E: rsi7d's ``replay_in_clone`` / ``replay_in_place`` replay a past task through the daemon.
 
 A real :class:`~kiss.server.web_server.RemoteAccessServer` on a temp
 local WSS endpoint runs the replay; the model is a local HTTP stand-in
@@ -29,7 +29,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from kiss.agents.seas.rsi import rsi_sea as sea
+from kiss.agents.seas.rsi7d import rsi7d_sea as sea
 from kiss.agents.sorcar import cron_agent
 from kiss.agents.sorcar.git_worktree import USER_PROMPT_HEADING
 from kiss.agents.sorcar.persistence import _add_task
@@ -85,14 +85,14 @@ class ReplayInCloneTest(DaemonLocalHarness):
             }),
             encoding="utf-8",
         )
-        # A fake KISS checkout with an editable demo SEA; rsi resolves it through the cwd.
+        # A fake KISS checkout with an editable demo SEA; rsi7d resolves it through the cwd.
         # Resolved because the SEA reports paths under os.getcwd(), which is the real path
         # (/private/var/... on macOS, where tempdirs live behind the /var symlink).
         self.checkout = (Path(self.tmpdir) / "checkout").resolve()
         seas = self.checkout / "src" / "kiss" / "agents" / "seas"
-        (seas / "rsi").mkdir(parents=True)
+        (seas / "rsi7d").mkdir(parents=True)
         (seas / "demo").mkdir()
-        shutil.copy(Path(sea.__file__), seas / "rsi" / "rsi_sea.py")
+        shutil.copy(Path(sea.__file__), seas / "rsi7d" / "rsi7d_sea.py")
         (seas / "demo" / "demo_sea.py").write_text(_DEMO_SEA, encoding="utf-8")
         saved_cwd = os.getcwd()
         os.chdir(self.checkout)

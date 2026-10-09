@@ -2,23 +2,23 @@
 # Contributors:
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
-"""rsi agent — 7-day recursive self-improvement of the indexed SEAs.
+"""rsi7d agent — 7-day recursive self-improvement of the indexed SEAs.
 
-Two ways to run it (a slash command needs some task text, so ``/rsi``
+Two ways to run it (a slash command needs some task text, so ``/rsi7d``
 alone is not dispatched)::
 
-    /rsi all
+    /rsi7d all
 
-    run_agent(agent="src/kiss/agents/seas/rsi/rsi_sea.py", task="all")
+    run_agent(agent="src/kiss/agents/seas/rsi7d/rsi7d_sea.py", task="all")
 
 The task text starts with the *scope* (:func:`parse_scope`)::
 
-    /rsi all                               every indexed SEA
-    /rsi review_paper write_paper          just those SEAs
-    /rsi --seas-dir ~/s10s/src/s10s/seas   the SEAs of that folder, now editable
-    /rsi --seas-dir ~/s10s/src/s10s/seas triage    one SEA of that folder
+    /rsi7d all                               every indexed SEA
+    /rsi7d review_paper write_paper          just those SEAs
+    /rsi7d --seas-dir ~/s10s/src/s10s/seas   the SEAs of that folder, now editable
+    /rsi7d --seas-dir ~/s10s/src/s10s/seas triage    one SEA of that folder
 
-Free-form instructions may follow the scope (``/rsi review_paper.
+Free-form instructions may follow the scope (``/rsi7d review_paper.
 Replay the costliest run.``).  The tools read the scope from the running
 task's text (``current_agent().last_user_prompt``) and enforce it:
 ``indexed_seas`` lists only the SEAs in scope, ``sea_runs`` and
@@ -35,7 +35,7 @@ instructions; any run that cost below $500 is eligible) and keeps or
 reverts it.  It also refreshes the observed model evidence the
 autorouter SEA routes on, by rewriting ``$KISS_HOME/AUTOROUTER.md`` (the
 file that SEA splices into its prompt; :func:`write_autorouter_evidence`),
-so the evidence never changes a SEA file.  rsi is itself one of the indexed SEAs: its
+so the evidence never changes a SEA file.  rsi7d is itself one of the indexed SEAs: its
 own finished sweeps are mined and its prompt patched the same way.
 
 KISS Sorcar itself is mined as the pseudo-SEA ``sorcar`` (the top-level
@@ -107,7 +107,7 @@ sweep edits.  :func:`replay_in_clone` clones the task's repository
 to its parent repository) at the commit the task started from — the
 first parent of the task's auto-commit, found through the ``User
 prompt:`` block auto-commits carry, else the repository ``HEAD`` at the
-task's start time — into ``tmp/rsi/replays/<sea>-<id>``, rewrites
+task's start time — into ``tmp/rsi7d/replays/<sea>-<id>``, rewrites
 repository paths in the task text to the clone and dispatches this
 checkout's SEA file (patched prompt included) there without a worktree
 or auto-commit.  The replay's task id comes back for ``run_findings``.
@@ -132,7 +132,7 @@ from typing import Any
 
 from kiss.agents.seas import agents_md
 from kiss.agents.seas.base.base_sea import BaseSea
-from kiss.agents.seas.rsi import sea_tuning
+from kiss.agents.seas.rsi7d import sea_tuning
 from kiss.agents.sorcar import (
     agent_dispatch,
     cron_agent,
@@ -158,7 +158,7 @@ WRAP_COLUMNS = 92
 SIGNATURE_CHARS = 200
 """Prompt prefix length that identifies a SEA run's ``system_prompt`` event."""
 PROMPT_METHOD = "system_prompt"
-"""The SEA method whose returned constant is the prompt rsi patches."""
+"""The SEA method whose returned constant is the prompt rsi7d patches."""
 STAMP_PREFIX = "_Observed in the task history"
 """First words of the stamp line ``write_autorouter_evidence`` puts above the evidence."""
 EVIDENCE_NAME = "AUTOROUTER.md"
@@ -168,8 +168,8 @@ that one)."""
 EVIDENCE_MAX_CHARS = 2500
 """Most characters ``write_autorouter_evidence`` writes, stamp line included: the autorouter
 SEA's ``EVIDENCE_MAX_CHARS`` (its ``observed_evidence()`` cuts a longer file at that size), kept
-equal to it by ``test_rsi_sea.py``."""
-REPLAY_DIR = Path("tmp") / "rsi" / "replays"
+equal to it by ``test_rsi7d_sea.py``."""
+REPLAY_DIR = Path("tmp") / "rsi7d" / "replays"
 """Clones made by ``replay_in_clone`` live here under the task's work dir (gitignored)."""
 SEAS_DIR_OPTION = "--seas-dir"
 """Task-text option naming the folder whose SEAs the sweep is restricted to (and may edit)."""
@@ -215,7 +215,7 @@ _CONDITIONAL = re.compile(
 """A qualified yes ("yes, but ...", "yes, if ...") is not a grant for everything asked."""
 
 SYSTEM_PROMPT = """\
-You are rsi, the KISS Sorcar agent that improves the other agents. Every indexed SEA
+You are rsi7d, the KISS Sorcar agent that improves the other agents. Every indexed SEA
 (Sorcar Extension Agent, a `<name>/<name>_sea.py` file registered as the slash command
 `/<name>`) has a `SYSTEM_PROMPT` constant. Your job is to read the last 7 days of the
 trajectories of every SEA in scope in the task history and make each of them finish with
@@ -223,12 +223,12 @@ higher quality (most important), fewer agentic mistakes, lower cost and higher s
 by adding precise instructions to its system prompt. You also refresh the observed model
 evidence the autorouter SEA routes on.
 
-rsi itself is one of those SEAs: its `src/kiss/agents/seas/rsi/rsi_sea.py` prompt is
+rsi7d itself is one of those SEAs: its `src/kiss/agents/seas/rsi7d/rsi7d_sea.py` prompt is
 editable through the same tools and its own finished sweeps (every run except the current
-one) are trajectories to mine like any other's. Typical rsi failure modes worth checking:
+one) are trajectories to mine like any other's. Typical rsi7d failure modes worth checking:
 verification claimed without a replay id, costs quoted from the running estimate instead of
 `run_findings`, replays skipped for eligible runs, a report that does not list the changed
-files. Patch its prompt with `patch_sea_prompt("rsi", ...)` exactly as for the others.
+files. Patch its prompt with `patch_sea_prompt("rsi7d", ...)` exactly as for the others.
 
 ## Scope
 Your task text starts with the scope: `all` (every indexed SEA), one or more SEA names
@@ -260,7 +260,7 @@ only through `patch_sorcar(target, old, new)`; never with Edit/Write.
   "Recommended changes to KISS Sorcar (not applied: permission)" with the evidence, or ask
   again for only what was allowed.
 - `SYSTEM.md`: keep changes small and evidence-backed, one section `## Lessons from recent
-  runs (rsi)` of at most about 8 bullets, merged with the existing one as for SEAs; mirror
+  runs (rsi7d)` of at most about 8 bullets, merged with the existing one as for SEAs; mirror
   a bullet into `SYSTEM_LITE.md` only when the evidence comes from a run that used the lite
   prompt. Evaluate with `replay_in_clone(task_id, max_budget=<cap>)` on a plain past run
   (`sea_runs(name="sorcar")`): the replay runs a plain task with this checkout's patched
@@ -268,7 +268,7 @@ only through `patch_sorcar(target, old, new)`; never with Edit/Write.
 - `AGENTS.md`: bullets the user would want in every task (a preference or convention that
   the user repeated in follow-up messages of several runs), never task-specific text.
   `patch_sorcar("AGENTS.md", "", <bullet>)` adds, `patch_sorcar("AGENTS.md", <bullet>, "")`
-  removes; the original is saved to `tmp/rsi/AGENTS.md.before`.
+  removes; the original is saved to `tmp/rsi7d/AGENTS.md.before`.
 - Code: fix a demonstrated bug or a cost/speed sink whose cause is in the code (cite the
   traceback or the tool result). Change the minimum, add or adjust an end-to-end test under
   `src/kiss/tests/` through `patch_sorcar` too, run the impacted tests with `uv run pytest -q
@@ -313,7 +313,7 @@ only through `patch_sorcar(target, old, new)`; never with Edit/Write.
   Bash call" beats "be efficient"). Do not restate what the prompt already says; read it
   first with `sea_prompt`. Prefer fixing the cause (e.g. "read `tmp/PROGRESS.md` before
   re-deriving the plan") over telling the agent to try harder.
-- Keep each SEA's added text short: one section `## Lessons from recent runs (rsi)` of at
+- Keep each SEA's added text short: one section `## Lessons from recent runs (rsi7d)` of at
   most about 12 bullets. When that section already exists, replace it with a merged,
   deduplicated version (`patch_sea_prompt(name, old=<the whole existing section>,
   new=<merged section>)`) instead of appending a second one. Drop a bullet only when the
@@ -322,12 +322,12 @@ only through `patch_sorcar(target, old, new)`; never with Edit/Write.
   improves the quality of the result; never trade quality for cost.
 - Model names: use the names exactly as they appear in `model_scorecard` and
   `~/{{HOME_DIR}}/MODEL_INFO.json`. Never invent a model name.
-- Work in `./tmp/rsi/` for notes; the final report goes to
-  `./reports/rsi-<YYYY-MM-DD>.md` and is `git add`ed.
+- Work in `./tmp/rsi7d/` for notes; the final report goes to
+  `./reports/rsi7d-<YYYY-MM-DD>.md` and is `git add`ed.
 
 ## Procedure (AI discovery loop)
 1. Baseline. Call `indexed_seas()` (check its `scope` against your task text), `sea_runs()`
-   and `model_scorecard()`. Write `./tmp/rsi/baseline.md`: per SEA the number of runs,
+   and `model_scorecard()`. Write `./tmp/rsi7d/baseline.md`: per SEA the number of runs,
    success/unsuccessful/failed counts, median cost, steps, seconds per step, models used; per
    model the scorecard row. Skip SEAs with zero runs in the window (say so in the report).
 2. Mine mistakes per editable SEA with runs, `sorcar` (KISS Sorcar itself) included when it
@@ -341,8 +341,8 @@ only through `patch_sorcar(target, old, new)`; never with Edit/Write.
    quality, look for re-derived plans, re-read files, serial one-command Bash calls,
    oversized tool outputs, unneeded sub-agents, wrong tool choices, missed requirements and
    hallucinated facts. Record each observation with its evidence in
-   `./tmp/rsi/findings-<name>.md`.
-3. Ideas. For each SEA write `./tmp/rsi/ideas.md`: candidate instructions with rationale,
+   `./tmp/rsi7d/findings-<name>.md`.
+3. Ideas. For each SEA write `./tmp/rsi7d/ideas.md`: candidate instructions with rationale,
    the evidence they rest on, and the aspect they improve (quality / mistakes / cost /
    speed). Use `decide` with pairwise "choice" questions to rank candidates; keep the
    winners (at most about 6 new bullets per SEA per run).
@@ -374,27 +374,27 @@ only through `patch_sorcar(target, old, new)`; never with Edit/Write.
    a SEA that lists `max_budget` in `settings()["locked"]` refuses a different cap, so pass
    its own value then).
    Two ways to replay:
-   - A task that modifies files (a paper, code, a report, a past rsi sweep) is replayed
+   - A task that modifies files (a paper, code, a report, a past rsi7d sweep) is replayed
      with `replay_in_clone(task_id, max_budget=<cap>)`. It clones the task's repository at
-     the commit the task started from into `tmp/rsi/replays/<name>-<id>`, rewrites
+     the commit the task started from into `tmp/rsi7d/replays/<name>-<id>`, rewrites
      repository paths in the task text to the clone, and runs this checkout's patched SEA
      file there, so this checkout is never touched. Use the `replay_task_id` it returns and
      judge quality from `git -C <clone> status --short` / `diff` against the original run's
-     result. Delete `tmp/rsi/replays` before you finish. Never replay such a task with
+     result. Delete `tmp/rsi7d/replays` before you finish. Never replay such a task with
      `run_agent` in this checkout.
    - A task that changes nothing on disk is replayed with
      `replay_in_place(task_id, max_budget=<cap>)`: this checkout's patched SEA file runs the
      verbatim past task in this directory, on the SEA's own prompt in a fresh chat. Never
-     replay with `run_agent`: a `run_agent` sub-task shares rsi's chat and budget, so
+     replay with `run_agent`: a `run_agent` sub-task shares rsi7d's chat and budget, so
      it does not measure the SEA as a user runs it.
    Then compare `run_findings(<new task id>)` with the original run (status, cost, steps,
    signal counts). Keep the change when the replay is not worse on status and signals and
    not clearly worse on cost/steps; otherwise revert it through the editor that made it
-   and record why in `./tmp/rsi/explored-ideas.md` so
+   and record why in `./tmp/rsi7d/explored-ideas.md` so
    the idea is not retried. Spend at most 60% of your remaining budget on replays and check
    `run_findings` of the sweep so far before each one; when no eligible run exists (every
    run cost $500 or more, or all have side effects) or the budget rule forbids the replay
-   (a past rsi sweep is a full sweep and rarely fits), keep a prompt or settings change
+   (a past rsi7d sweep is a full sweep and rarely fits), keep a prompt or settings change
    only if it is small, evidence-backed and passes `uv run pytest -q
    src/kiss/tests/agents/seas/test_<name>_sea.py` (when that test exists), and mark it "not
    replay-verified" in the report; revert a code change.
@@ -409,7 +409,7 @@ only through `patch_sorcar(target, old, new)`; never with Edit/Write.
    longer rows), the rest folded into one "others: insufficient data" row; then at most 5
    one-sentence bullets naming what a model is observed to be good or bad at, each with
    the counts that support the claim. Only claim what at least 10 tasks support.
-7. Report. Write `./reports/rsi-<YYYY-MM-DD>.md`: baseline table, per SEA the findings,
+7. Report. Write `./reports/rsi7d-<YYYY-MM-DD>.md`: baseline table, per SEA the findings,
    the added or changed bullets, the evaluation result (replay ids and metrics, or why not
    replayed), the autorouter evidence update, recommendations for non-editable SEAs, the
    changes to KISS Sorcar itself (applied with whose permission, or recommended because
@@ -419,10 +419,10 @@ only through `patch_sorcar(target, old, new)`; never with Edit/Write.
    evaluation evidence.""" """\
 
 
-## Lessons from recent runs (rsi)
+## Lessons from recent runs (rsi7d)
 
 - Call `sea_runs()` exactly once per sweep: it returns about 220k chars. Write the per-SEA
-  numbers into `tmp/rsi/baseline.md` in the next step and never call it again, with or
+  numbers into `tmp/rsi7d/baseline.md` in the next step and never call it again, with or
   without `name`/`days`. A replay's task id comes from the `replay_task_id` field of the JSON
   `replay_in_clone` and `replay_in_place` return; `run_findings(id)` then gives the
   replay's status and cost.
@@ -484,11 +484,11 @@ _ERROR_KIND_WORDS = ("ERROR", "FAIL", "EXCEPTION", "TRACEBACK")
 """Words that mark an uppercased event type (``TASK_ERROR``, ...) as an error event."""
 
 
-class RsiSea(BaseSea):
-    """The ``/rsi`` SEA."""
+class Rsi7dSea(BaseSea):
+    """The ``/rsi7d`` SEA."""
 
     def description(self) -> str:
-        """Return the one-sentence help text shown by ``/rsi help``."""
+        """Return the one-sentence help text shown by ``/rsi7d help``."""
         return (
             f"Mines the last 7 days of the indexed SEAs' runs in ~/{HOME_DIR}/history.db for "
             "agentic "
@@ -501,10 +501,10 @@ class RsiSea(BaseSea):
             "user's permission (asked for, unless the task text grants it), improves KISS Sorcar "
             f"itself: src/kiss/SYSTEM.md, ~/{HOME_DIR}/AGENTS.md and its code. The task text "
             "starts "
-            "with the scope: `/rsi all` (every SEA), `/rsi review_paper write_paper` (those "
-            "SEAs), `/rsi --seas-dir <folder> [<name> ...]` (the SEAs of that folder, which "
+            "with the scope: `/rsi7d all` (every SEA), `/rsi7d review_paper write_paper` (those "
+            "SEAs), `/rsi7d --seas-dir <folder> [<name> ...]` (the SEAs of that folder, which "
             "become the editable ones); instructions may follow. Or "
-            '`run_agent(agent="rsi", task="all")`.'
+            '`run_agent(agent="rsi7d", task="all")`.'
         )
 
     def system_prompt(self, system_prompt: str) -> str:
@@ -1069,7 +1069,7 @@ def _sea_prompt_text(path: Path) -> str:
 
 @dataclass(frozen=True)
 class Scope:
-    """What a ``/rsi`` task text restricts the sweep to (see :func:`parse_scope`)."""
+    """What a ``/rsi7d`` task text restricts the sweep to (see :func:`parse_scope`)."""
 
     seas_dir: Path | None = None
     """The ``--seas-dir`` folder, resolved; ``None`` for the checkout's editable folders."""
@@ -1099,7 +1099,7 @@ _SEA_NAME_RE = sea_commands._COMMAND_NAME_RE
 
 
 def parse_scope(text: str) -> Scope:
-    """Return the :class:`Scope` a ``/rsi`` task *text* names.
+    """Return the :class:`Scope` a ``/rsi7d`` task *text* names.
 
     ``--seas-dir <folder>`` (``~`` and a relative path resolve against
     the task's work dir) may appear anywhere; the SEA names are the
@@ -1147,7 +1147,7 @@ def _checkout_seas_dir() -> Path:
     """Return the checkout's ``seas`` directory: the task work dir's, else this file's.
 
     Any ``src/kiss/agents/seas`` directory of the work dir counts, even
-    one from an older layout without ``rsi/rsi_sea.py``: a replay of
+    one from an older layout without ``rsi7d/rsi7d_sea.py``: a replay of
     a past sweep in a clone (``replay_in_clone``) must edit the clone,
     never fall through to the checkout this file was loaded from.
     """
@@ -1800,13 +1800,13 @@ def patch_sea_code(name: str, old: str, new: str) -> str:
     return f"Patched {path}: {len(source)} -> {len(candidate)} chars, {delta:+d} lines"
 
 
-SNAPSHOT_DIR = Path("tmp") / "rsi" / "snapshots"
+SNAPSHOT_DIR = Path("tmp") / "rsi7d" / "snapshots"
 """Where ``improve_sea_code`` keeps the copy of a SEA folder it took before the sub-agent ran."""
 
 IMPROVE_PROMPT = """\
 Improve the Sorcar Extension Agent (SEA) `{name}` in this checkout. Its folder is `{folder}`
 and its script is `{file}`; every change must stay inside that folder (and its test file
-`{test}`, when the change needs one). Instructions and evidence from the rsi sweep:
+`{test}`, when the change needs one). Instructions and evidence from the rsi7d sweep:
 
 {instructions}
 
@@ -1830,7 +1830,7 @@ def improve_sea_code(
     the checkout with the SEA's folder, file and your *instructions*
     (the ideas and the evidence they rest on), capped by *max_budget*
     (USD) and *timeout* (seconds).  The folder is copied to
-    `tmp/rsi/snapshots/<name>` first; `revert_sea_code(name)` restores
+    `tmp/rsi7d/snapshots/<name>` first; `revert_sea_code(name)` restores
     that copy.  When the sub-agent returns, the script goes through the
     same gate as `patch_sea_code` (compile, load with every method,
     `sea lint`); a script that fails is restored from the snapshot and
@@ -1997,7 +1997,7 @@ def settle_sea_settings(name: str, replay_task_id: str = "") -> str:
     })
     return (
         f"Reverted settings()[{pending['key']!r}] of {name} to {pending['old']!r} "
-        f"({verdict}); record why in ./tmp/rsi/explored-ideas.md"
+        f"({verdict}); record why in ./tmp/rsi7d/explored-ideas.md"
     )
 
 
@@ -2023,7 +2023,7 @@ def _replay_verdict(replay_task_id: str, name: str, since_ms: int) -> str:
 
 
 def _own_task_id() -> str:
-    """Return this rsi task's persisted id (``""`` outside a task)."""
+    """Return this rsi7d task's persisted id (``""`` outside a task)."""
     task_id = getattr(current_agent(), "last_task_id", "")
     return task_id if isinstance(task_id, str) else ""
 
@@ -2158,7 +2158,7 @@ def write_autorouter_evidence(text: str) -> str:
     if not body:
         return "Error: the evidence text is empty"
     stamp = time.strftime("%Y-%m-%d", time.gmtime())
-    content = f"{STAMP_PREFIX}, refreshed {stamp} by /rsi._\n\n{body}\n"
+    content = f"{STAMP_PREFIX}, refreshed {stamp} by /rsi7d._\n\n{body}\n"
     if len(content) > EVIDENCE_MAX_CHARS:
         return (
             f"Error: the evidence is {len(content)} characters with its stamp line; the "
@@ -2448,7 +2448,7 @@ def request_sorcar_permission(targets: str, reason: str, prompt_quote: str = "")
             )
         answer = str(
             ask(
-                "rsi asks permission to change KISS Sorcar itself.\n"
+                "rsi7d asks permission to change KISS Sorcar itself.\n"
                 f"Files: {listing}\n"
                 f"Change and evidence: {reason}\n"
                 "Answer yes to allow exactly these changes; anything else (no, or what you "
@@ -2475,7 +2475,7 @@ def patch_sorcar(target: str, old: str, new: str) -> str:
     *new*; a ``.py`` file must still compile.  ``AGENTS.md`` holds one
     instruction per bullet: an empty *old* adds *new* as a bullet, an
     empty *new* removes the bullet *old*, both replace it; the file is
-    copied to ``tmp/rsi/AGENTS.md.before`` before its first change.
+    copied to ``tmp/rsi7d/AGENTS.md.before`` before its first change.
     Revert a checkout file with ``git checkout -- <file>``.
     """
     path = _sorcar_target(target)
@@ -2509,7 +2509,7 @@ def _patch_agents_md(path: Path, old: str, new: str) -> str:
     """Remove bullet *old* and/or add bullet *new* to ``$KISS_HOME/AGENTS.md``, after a backup."""
     if not old and not new:
         return "Error: give `old` (the bullet to remove), `new` (the bullet to add) or both"
-    backup = _work_root() / "tmp" / "rsi" / "AGENTS.md.before"
+    backup = _work_root() / "tmp" / "rsi7d" / "AGENTS.md.before"
     if path.is_file() and not backup.exists():
         backup.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, backup)
@@ -2601,8 +2601,8 @@ def _legacy_daemon_error(
         "agent_dispatch.dispatch_result (commit 12ee8703c), so this tool cannot "
         "dispatch the replay from inside the daemon. Reinstall the extension from "
         "this checkout, or run the replay under this checkout's package with "
-        f"`uv run python -c \"from kiss.agents.seas.rsi import rsi_sea; "
-        f"print(rsi_sea.{tool}({task_id!r}, {max_budget!r}, {timeout!r}, "
+        f"`uv run python -c \"from kiss.agents.seas.rsi7d import rsi7d_sea; "
+        f"print(rsi7d_sea.{tool}({task_id!r}, {max_budget!r}, {timeout!r}, "
         f"{name!r}, {model!r}))\"` "
         "in the background; that replay has no parent task, so quote its cost "
         "from run_findings(<replay_task_id>)."
@@ -2620,9 +2620,9 @@ def _dispatch_replay(
     base system prompt; any other replay runs the SEA
     *sea_file*.  The replay is dispatched with ``inherit=False``: a
     faithful replay runs on the SEA's own prompt, in its own chat, with
-    *model*, rather than in rsi's chat and on the budget share a
+    *model*, rather than in rsi7d's chat and on the budget share a
     ``run_agent`` call would hand it.  The replay
-    runs as an agent job of the calling rsi task and is stopped when
+    runs as an agent job of the calling rsi7d task and is stopped when
     *timeout* expires: a replay tool has no caller to collect a
     detached job, so here the bound is on the replay itself.  Returns
     the ``result`` (the dict ``success``, ``summary``, ``cost``,
@@ -2680,7 +2680,7 @@ def replay_in_place(
     auto-commit, with the original run's model unless *model* is given,
     capped by *max_budget* (USD) and *timeout* (seconds); *name*
     overrides the SEA recorded on the run.  Unlike a ``run_agent`` call,
-    which would run the SEA in rsi's chat on a share of its budget,
+    which would run the SEA in rsi7d's chat on a share of its budget,
     the replay runs in a fresh chat with its own budget, so it measures
     the SEA as a user runs it.  A run of KISS Sorcar
     itself (``sorcar``) is replayed as a plain task on this checkout's
@@ -2774,7 +2774,7 @@ def replay_in_clone(
 
     Use it for tasks that modify files (papers, code, reports): the replay
     runs the SEA file of this checkout (with its patched prompt) inside
-    ``tmp/rsi/replays/<sea>-<task id prefix>``, so it never touches this
+    ``tmp/rsi7d/replays/<sea>-<task id prefix>``, so it never touches this
     checkout.  The commit is the first parent of the task's own auto-commit
     (found through the ``User prompt:`` block of the commit message) or,
     without one, the repository HEAD at the task's start; repository paths

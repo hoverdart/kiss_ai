@@ -265,7 +265,7 @@ with their source URLs, each reviewer finding and what you did with it, and anyt
 paper claims that you could not verify.
 
 
-## Lessons from recent runs (rsi)
+## Lessons from recent runs (rsi7d)
 
 - Pass absolute paths inside the current worktree (`pwd` first) to `build_paper`,
   `check_paper` and every script you run; never `cd ../..` out of the worktree. A relative

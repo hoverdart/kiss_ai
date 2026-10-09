@@ -208,7 +208,7 @@ why the loop stopped, and the weaknesses still open when the target was not reac
 """ """\
 
 
-## Lessons from recent runs (rsi)
+## Lessons from recent runs (rsi7d)
 
 - Override a `loop_status` STOP at most once per loop, and only under the rule above (a
   weakness no earlier round attempted, with evidence the user allows). The STOP after

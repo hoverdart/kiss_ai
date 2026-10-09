@@ -261,7 +261,7 @@ class ChatSorcarAgent(SorcarAgent):
         bare-path directive or ``AGENTS.md`` are added to the prompt the
         model sees.  A SEA's tool reads it through
         :func:`kiss.server.agent_state.current_agent` to parse options
-        out of its own task (rsi's scope).
+        out of its own task (rsi7d's scope).
 
         Returns:
             The text, or ``""`` before this agent's first ``run``.

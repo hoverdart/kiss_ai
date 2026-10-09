@@ -37,7 +37,7 @@ SYSTEM_PROMPT = (
     "report all output it produced and note the exit code.\n" """\
 
 
-## Lessons from recent runs (rsi)
+## Lessons from recent runs (rsi7d)
 - Every reply is a tool call. If you will not run the command, call `finish` at once with
   `success=false` and a one-line reason as the result; never answer in prose without a
   tool call, since a prose-only reply gets recorded as the command's output.

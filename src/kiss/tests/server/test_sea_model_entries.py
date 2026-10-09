@@ -502,7 +502,7 @@ class Sea(BaseSea):
         assert AUTOROUTER_MARKER not in run["system_prompt"]
         assert BESTROUTER_MARKER not in run["system_prompt"]
 
-    def test_autorouter_pick_schedules_the_weekly_rsi_job_once(self) -> None:
+    def test_autorouter_pick_schedules_the_weekly_rsi7d_job_once(self) -> None:
         """Every run picked on ``autorouter`` makes sure one enabled weekly job exists.
 
         The first pick creates it in the real cron store of ``$KISS_HOME``;
@@ -513,11 +513,11 @@ class Sea(BaseSea):
             self._run("say hello", model=AUTOROUTER)
         assert any("picked as model: created:" in line for line in logs.output), logs.output
         (job,) = load_jobs()
-        assert job["name"] == autorouter_sea.RSI_JOB_NAME
+        assert job["name"] == autorouter_sea.RSI7D_JOB_NAME
         assert job["enabled"] is True
-        assert job["schedule"] == autorouter_sea.RSI_JOB_SCHEDULE
+        assert job["schedule"] == autorouter_sea.RSI7D_JOB_SCHEDULE
         assert job["work_dir"] == "" and job["use_worktree"] is False
-        assert f"task         = {autorouter_sea.RSI_TASK!r}" in job["prompt"]
+        assert f"task         = {autorouter_sea.RSI7D_TASK!r}" in job["prompt"]
         with self.assertLogs("kiss.sea_commands", level="INFO") as logs:
             self._run("say hello again", model=AUTOROUTER)
         assert any(
@@ -599,7 +599,7 @@ class Sea(BaseSea):
             lambda: bool(load_jobs()),
         )
         (job,) = load_jobs()
-        assert job["name"] == autorouter_sea.RSI_JOB_NAME and job["enabled"] is True
+        assert job["name"] == autorouter_sea.RSI7D_JOB_NAME and job["enabled"] is True
         assert job["work_dir"] == autorouter_sea.kiss_checkout(self.repo) == ""
         assert vs._tab_models[tab_id] == AUTOROUTER
 

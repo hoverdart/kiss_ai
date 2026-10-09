@@ -1346,7 +1346,7 @@ def cron_job(
       an enabled one is left as it is (``exists``), a paused one is
       resumed (``resumed``); only when there is none is the job created.
       Atomic under the store lock, for a job that code re-registers on
-      every trigger (autorouter's weekly ``/rsi``).
+      every trigger (autorouter's weekly ``/rsi7d``).
     - ``list``: list all jobs with their next/last run times.
     - ``remove`` / ``pause`` / ``resume``: manage the job named by
       ``job_id``.
