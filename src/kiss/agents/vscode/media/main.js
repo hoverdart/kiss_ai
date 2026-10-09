@@ -14625,14 +14625,18 @@
           const sub = mkEl('div', 'summary-sub');
           const adopt = [];
           const preserve = [];
+          // The digest reaches back to the previous summary, or failing
+          // that to the task panel heading the run (or a result card /
+          // Trajectory panel of an earlier task): the run's first
+          // summary therefore folds its System Prompt and Prompt panels
+          // too, and the transcript above the digest holds only the
+          // task's own text.
           let sib = c.previousElementSibling;
           while (sib) {
             if (
               sib.dataset.summaryPreserved ||
               sib.classList.contains('tc-summary') ||
               sib.classList.contains('trajectory') ||
-              sib.classList.contains('prompt') ||
-              sib.classList.contains('system-prompt') ||
               sib.classList.contains('task-panel') ||
               sib.classList.contains('adjacent-task') ||
               sib.classList.contains('rc')
@@ -14645,11 +14649,14 @@
               break;
             // A Thinking panel always belongs in the digest, even when
             // its Markdown shows a picture: the summary stands for the
-            // steps it recounts, their thoughts included.  Other media
-            // panels, questions and messages remain expanded siblings
-            // after the summary.
+            // steps it recounts, their thoughts included.  So do the
+            // System Prompt and Prompt panels, pictures or not.  Other
+            // media panels, questions and messages remain expanded
+            // siblings after the summary.
             if (
               !sib.classList.contains('llm-panel') &&
+              !sib.classList.contains('prompt') &&
+              !sib.classList.contains('system-prompt') &&
               (panelShowsMedia(sib) || panelStaysOpen(sib))
             )
               preserve.push(sib);
@@ -14872,7 +14879,11 @@
           if (pending.length) el = pending[pending.length - 1];
         }
         const fresh = !el;
-        if (fresh) el = mkEl('div', 'ev ' + cls);
+        // The panel starts folded: while the task runs the transcript
+        // shows its header and a one-line preview, and a click unfolds
+        // it.  A pending early panel the user unfolded keeps its state
+        // when the authoritative text replaces its body.
+        if (fresh) el = mkEl('div', 'ev ' + cls + ' collapsed');
         const body =
           typeof marked !== 'undefined'
             ? kissSanitize(marked.parse(ev.text || ''))
@@ -14895,6 +14906,7 @@
         }
         el.dataset.rawText = ev.text || '';
         addCollapse(el, el.querySelector('.' + cls + '-h'), ev.ts);
+        collapsePreview(el);
         hlBlock(el);
         if (fresh) target.appendChild(el);
         const bodyEl = el.querySelector('.' + cls + '-body');
