@@ -442,8 +442,10 @@ function testChevronFoldsAndHeaderOpensLastTask() {
     events: [],
     extra: JSON.stringify({startTs: 1_700_000_900_000, endTs: 1_700_000_900_001}),
   });
-  // Moving to the chat unfolds its panel (setHistoryActiveTask).
-  assert.ok(!a.classList.contains('collapsed'), 'the chat on screen unfolds its panel');
+  // Moving to the chat highlights its panel (setHistoryActiveTask)
+  // but does not unfold it: only the user folds or unfolds.
+  assert.ok(a.classList.contains('history-active-chat'), 'the chat on screen is highlighted');
+  assert.ok(a.classList.contains('collapsed'), 'the chat on screen stays folded');
   // Chat A starts a new task so "+" keeps its tab open while moving
   // to a fresh chat.
   send(win, {type: 'status', running: true, tabId: chatATab, startTs: 1_700_000_950_000});
@@ -457,7 +459,7 @@ function testChevronFoldsAndHeaderOpensLastTask() {
   assert.strictEqual(win.kissActiveTabId(), chatATab, 'the header switches to chat A');
   assert.ok(!hasTab(win, freshTab), 'the idle fresh chat left behind is retired');
   assert.strictEqual(byType(posted, 'resumeSession').length, 0, 'chat A is already on screen');
-  assert.ok(!a.classList.contains('collapsed'), 'and leaves the panel as it was');
+  assert.ok(a.classList.contains('collapsed'), 'and leaves the panel as it was');
 
   // Clicking the icon in the header behaves like the header.
   openSidebar(win);
@@ -466,9 +468,7 @@ function testChevronFoldsAndHeaderOpensLastTask() {
     makeRow({id: 'C', task_id: 9, is_running: true, has_events: true, startTs: 1_700_000_950_000}),
   ]);
   const c = group(win, 'C');
-  assert.ok(!c.classList.contains('collapsed'), 'a running chat starts open');
-  chevron(win, 'C').click();
-  assert.ok(c.classList.contains('collapsed'), 'folded by the chevron');
+  assert.ok(c.classList.contains('collapsed'), 'a running chat starts folded too');
   posted.length = 0;
   headerMark(win, 'C').click();
   assert.ok(c.classList.contains('collapsed'), 'the icon leaves the panel folded');

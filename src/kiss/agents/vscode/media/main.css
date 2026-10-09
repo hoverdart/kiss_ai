@@ -4046,7 +4046,8 @@ body.pdf-preview-body {
    title on ONE line (ellipsized), then the action strip ("Show
    details" chevron, "last launched ... ago") on the next.  A plain row
    on the list's own background (a list of many chats must not become
-   a stack of bands; the accent is reserved for the active row).  No
+   a stack of bands; the accent is reserved for the chat on screen and
+   its active task row).  No
    tooltip: the line is all there is.  Clicking the row opens the chat;
    only the chevron folds the task panels under it.
    A two-column grid: the last task's status icon (when there is one)
@@ -4075,6 +4076,17 @@ body.pdf-preview-body {
 
 .history-chat-header:hover {
   background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+/* The header of the chat on screen (the chat whose task the visible
+   chat webview shows): a lighter accent wash than the active task row
+   below it, with an accent bar down its left edge, so the chat is
+   found even while its panel is folded and the row is hidden.  The
+   :hover form outranks the neutral hover above. */
+.history-chat-group.history-active-chat > .history-chat-header,
+.history-chat-group.history-active-chat > .history-chat-header:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
 /* The status icon of the chat's last task (the same "?", spinner,

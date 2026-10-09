@@ -905,7 +905,7 @@ async function main() {
     win.close();
   });
 
-  await test('History: chat panels collapse by default, stay open while running, remember the user toggle', async () => {
+  await test('History: chat panels collapse by default, even while running, and remember the user toggle', async () => {
     const {win, posted} = makeWebview();
     const collapsed = g => g.classList.contains('collapsed');
     sendHistory(win, posted, 0, [
@@ -925,7 +925,15 @@ async function main() {
       'first task of A',
     );
     assert.ok(collapsed(gA), 'an idle chat starts collapsed');
-    assert.ok(!collapsed(gB), 'a chat with a running task starts open');
+    assert.ok(
+      collapsed(gB),
+      'a running task does not unfold its chat: only the user does',
+    );
+    assert.strictEqual(
+      gB.dataset.hasRunning,
+      '1',
+      'the running chat is still marked for the Running section',
+    );
     // The header is no toggle: the "Show details" chevron in its
     // action strip (as on a task panel) folds and unfolds the tasks.
     const chevronA = gA.querySelector(

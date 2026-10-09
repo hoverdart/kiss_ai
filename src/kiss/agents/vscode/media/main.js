@@ -22465,9 +22465,10 @@
 
   /**
    * Whether *group* renders collapsed: the user's explicit choice when
-   * there is one, otherwise collapsed unless a task of the chat is
-   * running — or a history search is active, whose matches must not
-   * hide behind closed headers.
+   * there is one, otherwise collapsed — a task starting in the chat,
+   * or the chat coming on screen, never unfolds a panel on its own.
+   * A history search is the exception: its matches must not hide
+   * behind closed headers.
    */
   function historyGroupCollapsed(group) {
     // An active search overrides even the user's saved choice: its
@@ -22475,13 +22476,7 @@
     // search. A collapse made DURING the search is honoured (kept on
     // the element only, dropped when the search text changes).
     if (historySearchActive()) return group._kissSearchCollapsed === true;
-    if (group._kissCollapsed !== undefined) return group._kissCollapsed;
-    if (group.dataset.hasRunning === '1') return false;
-    // The chat the user is looking at stays open like a running one:
-    // its highlighted task row must be in view, not behind a header.
-    return !(
-      historyActiveChatId && group.dataset.chatId === historyActiveChatId
-    );
+    return group._kissCollapsed !== false;
   }
 
   /**
@@ -22510,9 +22505,10 @@
 
   /**
    * Adopt *chatId* / *taskId* as the task the user is looking at and
-   * repaint the history list: the chat's panel opens (unless the user
-   * folded it), the task's row takes the highlight and scrolls into
-   * view.  Returns false when nothing changed.
+   * repaint the history list: the chat's panel and the task's row take
+   * the highlight, and the row (or, in a folded panel, the chat's
+   * header) scrolls into view.  The fold state is untouched: only the
+   * user folds or unfolds a panel.  Returns false when nothing changed.
    */
   function setHistoryActiveTask(chatId, taskId) {
     if (chatId === historyActiveChatId && taskId === historyActiveTaskId) {
@@ -22521,19 +22517,6 @@
     historyActiveChatId = chatId;
     historyActiveTaskId = taskId;
     historyActiveScrollPending = true;
-    // Moving to a chat the user once folded unfolds it: the fold
-    // predates the move, and the row to show sits inside.  A fold
-    // made WHILE looking at the chat stands until the next move.
-    if (chatId) {
-      historyChatCollapseOverrides.delete(chatId);
-      historySearchCollapseOverrides.delete(chatId);
-      const group = historyChatGroups.get(chatId);
-      if (group) {
-        delete group._kissCollapsed;
-        delete group._kissSearchCollapsed;
-      }
-    }
-    reapplyAllHistoryGroupCollapse(false);
     applyHistoryActiveTask();
     return true;
   }
@@ -22572,12 +22555,19 @@
 
   /**
    * Paint the highlight on the row of the task the user is looking at
-   * and, when a scroll is pending (the task changed, or the list was
-   * rebuilt — a rebuild lands at the top), bring the row into view: the
-   * row itself, or its chat's header when the user folded that panel.
-   * Called after every history render and on every change of the task.
+   * and on its chat's panel, and, when a scroll is pending (the task
+   * changed, or the list was rebuilt — a rebuild lands at the top),
+   * bring the row into view: the row itself, or its chat's header
+   * while that panel is folded.  Called after every history render
+   * and on every change of the task.
    */
   function applyHistoryActiveTask() {
+    historyChatGroups.forEach((group, chatId) => {
+      group.classList.toggle(
+        'history-active-chat',
+        !!historyActiveChatId && chatId === historyActiveChatId,
+      );
+    });
     const target = historyActiveRow();
     historyRenderedRows.forEach(row => {
       row.classList.toggle('history-active-task', row === target);
@@ -23715,11 +23705,9 @@
         );
         body.insertBefore(div, before || null);
         updateHistoryGroupLastTask(group, s);
-        if (s.is_running && group.dataset.hasRunning !== '1') {
-          // A running task keeps its chat's panel open by default.
-          group.dataset.hasRunning = '1';
-          applyHistoryGroupCollapsed(group);
-        }
+        // A running task puts its chat in the Running section
+        // (historyItemRunning); it does not unfold the chat's panel.
+        if (s.is_running) group.dataset.hasRunning = '1';
       }
       historyRenderedRows.push(div);
     });

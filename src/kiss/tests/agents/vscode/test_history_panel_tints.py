@@ -5,12 +5,15 @@
 
 """The history panel's and tab strip's colour cues are clearly visible.
 
-Three tints must read at a glance in a real Chromium:
+Four tints must read at a glance in a real Chromium:
 
 * the collapsible chat panel's header in the task-history panel: a
   plain row with no fill of its own and a quiet NEUTRAL tint (no hue)
   under the pointer, so a list of many chats does not become a stack
-  of bands and the accent stays reserved for the active row below;
+  of bands and the accent stays reserved for the chat on screen;
+* the header of the chat whose webview is on screen
+  (``.history-chat-group.history-active-chat``): an accent wash and an
+  accent bar down its left edge, hovered or not, folded or not;
 * the task panel whose chat webview is on screen
   (``.running-item.history-active-task``): an accent tint and border;
 * a sub-agent's tab in the chat tab strip: purple tint, purple text,
@@ -23,6 +26,8 @@ require an alpha well above the 8% at which the tints used to vanish.
 """
 
 from __future__ import annotations
+
+import re
 
 import pytest
 from playwright.sync_api import sync_playwright
@@ -95,10 +100,10 @@ def _assert_tint(color: str, hue_of: str, what: str, min_alpha: float = _MIN_ALP
 
 
 def test_chat_panel_header_is_a_quiet_neutral(_browser) -> None:
-    """Every chat panel's header is a plain row (no fill of its own),
-    takes a faint neutral tint of the foreground (no hue) under the
-    pointer, and never borrows the accent that marks the active task row
-    (that row's tint is checked by test_active_task_panel_is_a_visible_accent)."""
+    """The header of a chat that is not on screen is a plain row (no
+    fill of its own), takes a faint neutral tint of the foreground (no
+    hue) under the pointer, and never borrows the accent that marks the
+    chat on screen (checked by test_active_chat_header_is_a_visible_accent)."""
     context, page = _open_history_page(_browser)
     try:
         _post_history(page, _sample_sessions())
@@ -335,9 +340,14 @@ def _assert_active_row_accent(page, what: str) -> None:
     assert _alpha_of(border) >= 0.5, border
 
 
+_ACTIVE_HEADER = ".history-chat-group.history-active-chat > .history-chat-header"
+_OTHER_HEADER = ".history-chat-group:not(.history-active-chat) > .history-chat-header"
+
+
 def _show_active_task(page) -> None:
-    """Paint the sample history and make ``chat-run``'s task the one the
-    visible tab shows."""
+    """Paint the sample history (``_post_history`` opens every chat
+    panel through its chevron, as a user would) and make ``chat-run``'s
+    task the one the visible tab shows."""
     _post_history(page, _sample_sessions())
     page.evaluate(
         "() => window.__post({type: 'task_settings',"
@@ -345,7 +355,39 @@ def _show_active_task(page) -> None:
         " settings: {model: 'm', chat_id: 'chat-run', task_id: 1002,"
         " start_ts: 1700000100000}})"
     )
-    page.wait_for_selector(_ACTIVE_ROW, state="attached")
+    page.wait_for_selector(_ACTIVE_ROW, state="visible")
+    page.wait_for_selector(_ACTIVE_HEADER, state="visible")
+
+
+def _fold_active_chat(page) -> None:
+    """The user folds the chat on screen through its chevron: the task
+    row hides, the header stays."""
+    page.click(_ACTIVE_HEADER + " .history-chat-collapse")
+    page.wait_for_selector(_ACTIVE_ROW, state="hidden")
+
+
+def _assert_active_header_accent(page, what: str) -> None:
+    """The active chat's header carries the accent wash and the accent
+    bar (an inset box-shadow) down its left edge."""
+    accent = _var_color(page, "--accent")
+    _settle(page, _ACTIVE_HEADER)
+    _assert_tint(_style(page, _ACTIVE_HEADER, "backgroundColor"), accent, what, 0.1)
+    shadow = _style(page, _ACTIVE_HEADER, "boxShadow")
+    assert "inset" in shadow, f"{what} has no accent bar: {shadow}"
+    _assert_tint(_shadow_color(shadow), accent, what + "'s bar", 0.5)
+
+
+def _shadow_color(shadow: str) -> str:
+    """The colour of a computed ``box-shadow`` as ``rgba(r, g, b, a)``.
+    Chromium serialises a ``color-mix`` shadow colour as
+    ``color(srgb r g b / a)`` with 0..1 channels."""
+    rgba = re.search(r"rgba?\([^)]*\)", shadow)
+    if rgba:
+        return rgba.group(0)
+    srgb = re.search(r"color\(srgb ([\d.]+) ([\d.]+) ([\d.]+)(?: / ([\d.]+))?\)", shadow)
+    assert srgb, f"unrecognised shadow colour: {shadow}"
+    r, g, b = (round(float(srgb.group(i)) * 255) for i in (1, 2, 3))
+    return f"rgba({r}, {g}, {b}, {srgb.group(4) or '1'})"
 
 
 def _use_remote_surface(page) -> None:
@@ -391,6 +433,44 @@ def test_active_task_panel_is_a_visible_accent_on_the_remote_page(_browser) -> N
         _assert_active_row_accent(page, "the remote active task panel")
         page.hover(_ACTIVE_ROW)
         _assert_active_row_accent(page, "the hovered remote active task panel")
+    finally:
+        context.close()
+
+
+def test_active_chat_header_is_a_visible_accent(_browser) -> None:
+    """The header of the chat the visible tab shows is painted in an
+    accent wash with an accent bar, unfolded or folded by the user,
+    hovered or not; the other headers keep no fill."""
+    context, page = _open_history_page(_browser)
+    try:
+        _show_active_task(page)
+        _assert_active_header_accent(page, "the active chat header")
+        others = page.evaluate(
+            "(sel) => [...document.querySelectorAll(sel)]"
+            ".map(el => getComputedStyle(el).backgroundColor)",
+            _OTHER_HEADER,
+        )
+        assert len(others) == 2, others
+        for bg in others:
+            assert _alpha_of(bg) == 0, f"another chat's header is tinted: {bg}"
+        page.hover(_ACTIVE_HEADER)
+        _assert_active_header_accent(page, "the hovered active chat header")
+        _fold_active_chat(page)
+        _assert_active_header_accent(page, "the folded active chat header")
+    finally:
+        context.close()
+
+
+def test_active_chat_header_is_a_visible_accent_on_the_remote_page(_browser) -> None:
+    """``remote-codex.css`` must not take the chat header's cue away."""
+    context, page = _open_history_page(_browser)
+    try:
+        _show_active_task(page)
+        _fold_active_chat(page)
+        _use_remote_surface(page)
+        _assert_active_header_accent(page, "the remote active chat header")
+        page.hover(_ACTIVE_HEADER)
+        _assert_active_header_accent(page, "the hovered remote active chat header")
     finally:
         context.close()
 
