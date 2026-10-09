@@ -5,10 +5,14 @@
 # add your name here
 """Run a SEA in this process: no kiss-web daemon, no UI.
 
-    uv run python scripts/run_sea_standalone.py <sea_path> "<task>" [--work-dir DIR] [-m MODEL] [-b USD]
+    uv run python scripts/run_sea_standalone.py <sea> "<task>" [--work-dir DIR] [-m MODEL] [-b USD]
 
-Loads the SEA exactly as the daemon does (``sea_layers`` + ``evaluate_sea``)
-and runs ``SorcarAgent.run`` with the SEA's settings, prompt and hooks.
+``<sea>`` is a SEA name (``sh``, ``weather``: resolved through the same
+registry the daemon uses, i.e. the bundled ``seas/`` folder, the folders
+listed in ``$KISS_HOME/SEAS.md`` and ``third_party_agents/``) or the path
+of a SEA file (``<name>/<name>_sea.py``).  Loads it exactly as the daemon
+does (``sea_layers`` + ``evaluate_sea``) and runs ``SorcarAgent.run`` with
+the SEA's settings, prompt and hooks.
 Needs only an API key in the environment (``$KISS_HOME/api_keys.env`` is
 loaded).  Prints the agent's YAML result; exits 0 on success, 1 otherwise.
 """
@@ -23,9 +27,27 @@ from pathlib import Path
 import yaml
 
 
+def resolve_sea(sea: str) -> Path:
+    """Return the SEA script for *sea*, a registered SEA name or a file path.
+
+    A path wins when it names an existing file; otherwise the name is
+    looked up in the SEA registry.  Raises ``SystemExit`` with the list
+    of known names when neither matches.
+    """
+    from kiss.agents.sorcar.sea_commands import get_command, list_commands
+
+    path = Path(sea)
+    if path.is_file():
+        return path.resolve()
+    found = get_command(sea)
+    if found is None:
+        sys.exit(f"unknown SEA {sea!r}; known names: {', '.join(list_commands())}")
+    return found
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
-    parser.add_argument("sea_path", help="path of the SEA file (<name>/<name>_sea.py)")
+    parser.add_argument("sea", help="SEA name (e.g. sh) or path of a SEA file (<n>/<n>_sea.py)")
     parser.add_argument("task", help="the task text the SEA's prompt(task) receives")
     parser.add_argument("--work-dir", default="", help="working directory (default: cwd)")
     parser.add_argument("-m", "--model", default="", help="model (SEA 'model' setting wins)")
@@ -39,7 +61,7 @@ def main() -> int:
     from kiss.agents.sorcar.sea_commands import evaluate_sea, sea_layers
     from kiss.agents.sorcar.sorcar_agent import SorcarAgent
 
-    sea_path = Path(args.sea_path).resolve()
+    sea_path = resolve_sea(args.sea)
     run = evaluate_sea(sea_layers(sea_path), args.task)
     s = run.settings
     work_dir = s.get("work_dir") or args.work_dir or os.getcwd()
