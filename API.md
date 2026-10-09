@@ -144,7 +144,7 @@
   - `max_sub_sessions`: Maximum continuation sub-sessions. Defaults to config value.
   - `docker_image`: Docker image name to run tools inside a container.
   - `web_tools`: Whether to include browser/web tools. Defaults to True.
-  - `live_browser`: The daemon's ``BrowserTabService``; when given, ``show_browser()`` opens the page in the Browser tab on every surface (forwarded to every sub-agent).  None (no daemon) shows a local window instead. Set to False for terminal-only environments.
+  - `live_browser`: The daemon's ``BrowserTabService``; when given, the web tools browse in the Browser tab on every surface (forwarded to every sub-agent).  None (no daemon) browses headless until ``show_browser()`` opens a local window.  Set to False for terminal-only environments.
   - `prompt_suffix`: The caller-supplied text (the daemon's ``appendToPrompt`` wire field, e.g. a ``run_agent`` call's ``add_to_prompt`` option) that the caller has ALREADY appended to *prompt_template*; it is not added again here.  Recorded as ``_prompt_suffix`` so a ``run_agent`` sub-task dispatched during the run inherits it as its own ``add_to_prompt`` option (see ``agent_dispatch.inherit_from_parent``).  Defaults to "" (the run has no suffix).  Last in the signature so every earlier argument keeps its position.
   - `is_parallel`: Whether to include the run_parallel tool. Defaults to True. When True, the agent can spawn parallel sub-agents for independent tasks.
   - `verbose`: Whether to print output to console. Defaults to config verbose setting.
