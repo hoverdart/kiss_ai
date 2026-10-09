@@ -19,7 +19,10 @@
 //   * the hide button at the right end of the pane's tab row folds the
 //     pane away (body.content-pane-folded: the chat alone, the panel
 //     docked, the content tabs kept); the #content-pane-show tab or the
-//     next content tab shown unfolds it;
+//     next content tab shown unfolds it; the fold is kept in
+//     localStorage (kiss-content-pane-folded) across reloads, like the
+//     chat pane's share of the split, until unfolded or the last
+//     content tab closes;
 //   * the Explorer and Source Control sections catch up on task news
 //     that arrived while the panel was hidden;
 //   * the machine name from configData shows above the transcript;
@@ -37,8 +40,18 @@ const {inlineDesignTokens} = require('./designTokens');
 
 const MEDIA = path.join(__dirname, '..', 'media');
 
+/**
+ * A fresh page.  `storage` is the localStorage contents of the page
+ * instance this one reloads (see storageOf); `denyStorage` makes every
+ * localStorage access throw, as a browser with storage blocked does.
+ */
 function makeWebview(opts) {
-  const {remote = true, desktop = true} = opts || {};
+  const {
+    remote = true,
+    desktop = true,
+    storage = null,
+    denyStorage = false,
+  } = opts || {};
   let html = fs.readFileSync(path.join(MEDIA, 'chat.html'), 'utf8');
   html = html.replace(/\{\{MODEL_NAME\}\}/g, 'test-model');
   html = html.replace(
@@ -58,6 +71,16 @@ function makeWebview(opts) {
   win.HTMLElement.prototype.scrollTo = function () {};
   win.Element.prototype.setPointerCapture = function () {};
   win.Element.prototype.releasePointerCapture = function () {};
+  if (storage) {
+    for (const [k, v] of Object.entries(storage)) win.localStorage.setItem(k, v);
+  }
+  if (denyStorage) {
+    Object.defineProperty(win, 'localStorage', {
+      get() {
+        throw new Error('localStorage denied');
+      },
+    });
+  }
   const posted = [];
   let state;
   win.acquireVsCodeApi = function () {
@@ -144,6 +167,18 @@ function openChatAndFile(win) {
   assert.ok(fileTab, 'the file opened as a content tab');
   return fileTab;
 }
+
+/** Everything a page left in localStorage, for the page that reloads it. */
+function storageOf(win) {
+  const items = {};
+  for (let i = 0; i < win.localStorage.length; i++) {
+    const k = win.localStorage.key(i);
+    items[k] = win.localStorage.getItem(k);
+  }
+  return items;
+}
+
+const FOLD_KEY = 'kiss-content-pane-folded';
 
 function closeContentTab(win, tabId) {
   const btn = win.document.querySelector(
@@ -604,7 +639,7 @@ function addBrowserAndTerminal(win) {
   win.eval(fs.readFileSync(path.join(MEDIA, 'terminalTab.js'), 'utf8'));
 }
 
-test('a file, a browser or a terminal opening slides the panel off', () => {
+test('a file, a browser or a terminal opening slides the panel off', async () => {
   const {win} = makeWebview();
   addBrowserAndTerminal(win);
   const drawer = byId(win, 'meta-drawer');
@@ -657,6 +692,11 @@ test('a file, a browser or a terminal opening slides the panel off', () => {
   const termTab = win._testApi.openTabs().find(t => t.title === 'Terminal');
   assert.ok(termTab && termTab.isContentTab, 'the terminal opened as a content tab');
   assert.ok(hasClass(win, 'meta-hidden'), 'the terminal slid the panel off');
+  // Let xterm attach (ensureXterm resolves in a microtask) before the
+  // window goes; a shown content tab left behind keeps node alive.
+  await Promise.resolve();
+  await Promise.resolve();
+  win.close();
 });
 
 test('the shown file reopened, a successor and a desktop restore slide the panel off too', () => {
@@ -717,6 +757,7 @@ test('the shown file reopened, a successor and a desktop restore slide the panel
   fireChange(true);
   assert.ok(hasClass(win, 'content-pane-open'), 'the file is back in the pane');
   assert.ok(hasClass(win, 'meta-hidden'), 'the restore slides the panel off');
+  win.close();
 });
 
 test('the hide button folds the pane away; the show tab or the next open unfolds it', () => {
@@ -830,6 +871,136 @@ test('the hide button folds the pane away; the show tab or the next open unfolds
   fireChange(false);
   assert.ok(!hasClass(win, 'content-pane-folded'));
   assert.ok(!hasClass(win, 'content-pane-open'));
+});
+
+/**
+ * The daemon's `browserTabs` snapshot, sent on every `ready`: a reload
+ * gets its browser tabs back through it, unfocused.
+ */
+function sendBrowserSnapshot(win) {
+  send(win, {
+    type: 'browserTabs',
+    tabs: [
+      {tab_id: 'b1', url: 'https://example.com/', title: 'Example', focus: false},
+    ],
+  });
+}
+
+/** Reload `win`: a fresh page with its localStorage, chat and browser tabs. */
+function reload(win) {
+  const next = makeWebview({storage: storageOf(win)});
+  win.close();
+  addBrowserAndTerminal(next.win);
+  send(next.win, {
+    type: 'tabs_state',
+    tabs: [{tabId: 'a1', chatId: 'chat-1', title: 'a1', workDir: '/ws'}],
+  });
+  sendBrowserSnapshot(next.win);
+  return next.win;
+}
+
+test('the fold is remembered across reloads in localStorage', () => {
+  let {win} = makeWebview();
+  addBrowserAndTerminal(win);
+  const hideBtn = byId(win, 'content-pane-hide');
+  // The hide button without a content tab records nothing.
+  click(win, hideBtn);
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), null);
+
+  openChatAndFile(win);
+  send(win, {
+    type: 'openBrowserTab',
+    tab_id: 'b1',
+    url: 'https://example.com/',
+    title: 'Example',
+    focus: true,
+  });
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), null, 'unfolded: no key');
+  click(win, hideBtn);
+  assert.ok(hasClass(win, 'content-pane-folded'));
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), '1', 'the fold is written');
+
+  // Reloaded: the page starts with no content tab (file tabs are not
+  // mirrored), so there is no pane and no fold on screen yet.  The
+  // browser tab the daemon announces again comes back behind the
+  // fold: the chat alone, the show tab on its edge, the panel docked.
+  win = reload(win);
+  assert.ok(!hasClass(win, 'content-pane-open'));
+  assert.ok(hasClass(win, 'content-pane-folded'), 'the browser tab came back folded');
+  assert.ok(!hasClass(win, 'meta-hidden'), 'the panel is docked beside the chat');
+  assert.ok(
+    win._testApi.openTabs().some(t => t.id === 'b1'),
+    'the browser tab is open',
+  );
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), '1', 'still remembered');
+
+  // A file opened in the background after the reload stays behind the
+  // fold; the show tab unfolds the pane and forgets the fold.
+  send(win, {
+    type: 'fileContent',
+    tabId: 'a1',
+    path: '/ws/aside.md',
+    name: 'aside.md',
+    content: '# Aside',
+    version: 'v1',
+    background: true,
+  });
+  assert.ok(hasClass(win, 'content-pane-folded'), 'a background open keeps the fold');
+  click(win, byId(win, 'content-pane-show'));
+  assert.ok(hasClass(win, 'content-pane-open'));
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), null, 'unfolded: forgotten');
+
+  // Reloaded unfolded: the browser tab comes back in an open pane.
+  win = reload(win);
+  assert.ok(hasClass(win, 'content-pane-open'), 'the pane is back open');
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+
+  // Folded, reloaded, then a file opened to be seen: the open unfolds
+  // the pane and forgets the fold, as before the reload.
+  click(win, byId(win, 'content-pane-hide'));
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), '1');
+  win = reload(win);
+  assert.ok(hasClass(win, 'content-pane-folded'));
+  send(win, {
+    type: 'fileContent',
+    tabId: 'a1',
+    path: '/ws/notes.md',
+    name: 'notes.md',
+    content: '# Notes',
+    version: 'v1',
+  });
+  assert.ok(hasClass(win, 'content-pane-open'), 'the shown file unfolds the pane');
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), null);
+
+  // Folded, then the last content tab closed: the fold is forgotten,
+  // so the next reload shows the pane as soon as a tab comes back.
+  click(win, byId(win, 'content-pane-hide'));
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), '1');
+  send(win, {type: 'closeBrowserTab', tab_id: 'b1'});
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), '1', 'a file tab is still open');
+  for (const t of win._testApi.openTabs().filter(t => t.isContentTab)) {
+    closeContentTab(win, t.id);
+  }
+  assert.strictEqual(win.localStorage.getItem(FOLD_KEY), null, 'no tab left: forgotten');
+  win = reload(win);
+  assert.ok(hasClass(win, 'content-pane-open'));
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+  win.close();
+});
+
+test('without localStorage the fold still works for the page instance', () => {
+  const {win} = makeWebview({denyStorage: true});
+  addBrowserAndTerminal(win);
+  openChatAndFile(win);
+  assert.ok(hasClass(win, 'content-pane-open'), 'the page came up without storage');
+  click(win, byId(win, 'content-pane-hide'));
+  assert.ok(hasClass(win, 'content-pane-folded'), 'folded in memory');
+  click(win, byId(win, 'content-pane-show'));
+  assert.ok(hasClass(win, 'content-pane-open'));
+  assert.ok(!hasClass(win, 'content-pane-folded'));
+  win.close();
 });
 
 async function main() {

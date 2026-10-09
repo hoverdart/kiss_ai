@@ -1925,8 +1925,27 @@
   // button at the right end of its tab row): the chat alone fills #app
   // while the content tabs stay open.  #content-pane-show on the
   // chat's right edge unfolds it, as does the next content tab shown
-  // (showInContentPane).  Cleared once no content tab is left.
+  // (showInContentPane).  Dropped when the last content tab closes.
+  // Remembered in localStorage across reloads, like the chat pane's
+  // share of the split (PANE_PCT_KEY): the browser tabs the daemon
+  // announces again after a reload (`browserTabs`, unfocused) come
+  // back behind the fold.
+  const CONTENT_PANE_FOLDED_KEY = 'kiss-content-pane-folded';
   let contentPaneHidden = false;
+  try {
+    contentPaneHidden =
+      window.localStorage.getItem(CONTENT_PANE_FOLDED_KEY) === '1';
+  } catch {}
+
+  /** Record the fold, in memory and in localStorage. */
+  function storeContentPaneFold(hidden) {
+    if (contentPaneHidden === hidden) return;
+    contentPaneHidden = hidden;
+    try {
+      if (hidden) window.localStorage.setItem(CONTENT_PANE_FOLDED_KEY, '1');
+      else window.localStorage.removeItem(CONTENT_PANE_FOLDED_KEY);
+    } catch {}
+  }
 
   function shownContentTabId() {
     if (splitLayout()) return activeContentTabId;
@@ -2082,7 +2101,6 @@
     list.setAttribute('aria-label', 'Open files');
     list.innerHTML = '';
     const contentTabs = tabs.filter(t => t.isContentTab);
-    if (contentTabs.length === 0) contentPaneHidden = false;
     const folded = split && contentTabs.length > 0 && contentPaneHidden;
     document.body.classList.toggle('content-pane-folded', folded);
     syncContentPaneOpen(split && contentTabs.length > 0 && !folded);
@@ -2494,7 +2512,9 @@
   function setContentPaneHidden(hidden) {
     hidden = !!hidden;
     if (contentPaneHidden === hidden) return;
-    contentPaneHidden = hidden;
+    // Nothing to fold without a content tab.
+    if (hidden && !tabs.some(t => t.isContentTab)) return;
+    storeContentPaneFold(hidden);
     const hideBtn = document.getElementById('content-pane-hide');
     const showBtn = document.getElementById('content-pane-show');
     // Whether focus sat in the pane, read before the render hides it.
@@ -2545,7 +2565,7 @@
   function showInContentPane(tab) {
     activeContentTabId = tab ? tab.id : null;
     if (tab) {
-      contentPaneHidden = false;
+      storeContentPaneFold(false);
       showContentTab(tab);
     } else {
       closeContentMenu();
@@ -3109,6 +3129,9 @@
     }
     tabs.splice(idx, 1);
     disposeTabContentView(tab);
+    // The fold does not outlive the content tabs: the next tab opened,
+    // even in the background, shows the pane.
+    if (!tabs.some(t => t.isContentTab)) storeContentPaneFold(false);
     if (splitLayout() && activeContentTabId === tabId) {
       // Split layout: the content pane moves on to the nearest content
       // tab, or empties.
