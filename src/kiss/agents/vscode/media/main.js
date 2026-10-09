@@ -21202,8 +21202,12 @@
         requestHistory(historyOffset);
       }
     });
+    // A click on a file link of a transcript (a span promoteFileLink
+    // stamped) opens the file.  Only those: the folder picker's rows
+    // and the "Working directory" panel's recent list carry their
+    // folder in data-path too, and have click handlers of their own.
     document.addEventListener('click', e => {
-      const el = e.target.closest('[data-path]');
+      const el = e.target.closest('.kiss-filelink[data-path]');
       if (el && el.dataset.path) {
         const raw = el.dataset.path;
         const msg = {

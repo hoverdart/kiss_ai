@@ -77,6 +77,7 @@ def _click_root_button(page, root: str, action: str) -> None:
     row un-hovered, so the hover is repeated until the button of the
     current row is visible.
     """
+    _show_panel(page)
     row = page.locator(_row_at(root, ".is-root"))
     button = page.locator(f"{_row_at(root, '.is-root')} .explorer-root-{action}")
     for _ in range(50):
@@ -147,13 +148,48 @@ def _show_section(page, section_id: str) -> None:
         page.click(f"#{section_id} .meta-section-toggle")
 
 
+def _hide_panel(page) -> None:
+    """Desktop: the task-info panel lies over the content pane's right
+    edge, where the PDF toolbar sits; press in the pane to slide the
+    panel away (a phone stacks the surfaces, nothing to hide)."""
+    if not page.evaluate("document.body.classList.contains('remote-desktop')"):
+        return
+    page.dispatch_event("#content-tab-area", "pointerdown")
+    page.wait_for_selector("body.meta-hidden", state="attached", timeout=5000)
+
+
+def _show_panel(page) -> None:
+    """Bring the task-info panel (and the Explorer / Source Control in
+    it) back from its drawer: a tab opening in the content pane, or a
+    press in the pane, slides the panel off screen on the desktop."""
+    if not page.evaluate("document.body.classList.contains('meta-hidden')"):
+        return
+    page.click("#meta-drawer")
+    page.wait_for_function(
+        "() => !document.body.classList.contains('meta-hidden')"
+        " && document.getElementById('meta-panel').getBoundingClientRect().right"
+        "    <= window.innerWidth + 1",
+        timeout=5000,
+    )
+
+
+def _panel_click(locator, **kwargs) -> None:
+    """Click *locator*, a row of the task-info panel, after bringing the
+    panel back from its drawer (the content tab opened by the previous
+    click slid the panel off)."""
+    _show_panel(locator.page)
+    locator.click(**kwargs)
+
+
 def _open_explorer(page):
+    _show_panel(page)
     _show_section(page, "meta-explorer")
     page.wait_for_selector(".explorer-row.is-file", timeout=15000)
     _settle(page)
 
 
 def _open_scm(page):
+    _show_panel(page)
     _show_section(page, "meta-scm")
     page.wait_for_selector("#scm-graph .scm-commit", timeout=15000)
     _settle(page)
@@ -360,6 +396,8 @@ def test_new_file_rename_and_delete_act_on_disk(browser, harness, worktree):
         sent = [f for f in _sent(frames, "fsAction") if f["action"] == "newFile"]
         assert sent and sent[0]["path"] == str(harness.work_dir.resolve() / "dir")
         assert sent[0]["name"] == "fresh.py"
+        # The editor opening slid the panel off; bring the Explorer back.
+        _show_panel(page)
 
         # New Folder... via the inline box, Escape cancels first.
         _explorer_row(page, "dir").click(button="right")
@@ -532,6 +570,7 @@ def test_find_in_folder_and_compare_open_result_tabs(browser, harness, worktree)
         )
         assert any("Search: sentinel" in t for t in titles)
         # Select for Compare + Compare with Selected -> a diff tab.
+        _show_panel(page)
         _explorer_row(page, "feature.txt").click(button="right")
         _menu_item(page, "Select for Compare").click()
         _explorer_row(page, "main-only.txt").click(button="right")
@@ -649,6 +688,8 @@ def test_commit_menu_matches_vscode_and_open_changes(browser, harness, worktree)
         assert not page.locator(".content-tab-view .content-save-bar").count()
         shows = _sent(frames, "gitShow")
         assert shows and shows[0]["sha"] == harness.shas["second"]
+        # The patch tab slid the panel off; bring Source Control back.
+        _show_panel(page)
         # Copy Commit Hash / Message.
         second.click(button="right")
         _menu_item(page, "Copy Commit Hash").click()
@@ -778,6 +819,8 @@ def test_explorer_multi_select_and_multi_target_menu(browser, harness, worktree)
         _wait_tab_count(page, tabs_before + 1)
         assert _selected_names(page) == ["a.txt"]
         assert _explorer_row(page, "a.txt").get_attribute("aria-selected") == "true"
+        # The editor opening slid the panel off; bring the Explorer back.
+        _show_panel(page)
         # Ctrl-click adds a row without opening it; Shift-click selects
         # from the anchor (the last row clicked) to the target.
         # ControlOrMeta: on macOS Ctrl-click is the context-menu gesture
@@ -824,6 +867,7 @@ def test_explorer_multi_select_and_multi_target_menu(browser, harness, worktree)
         compares = [f for f in _sent(frames, "fsAction") if f["action"] == "compare"]
         assert compares[-1]["path"] == str(folder / "c.txt")
         assert compares[-1]["dest"] == str(folder / "d.txt")
+        _show_panel(page)
 
         # Right-clicking a row outside the selection selects it alone:
         # the single-row menu (with Rename...) comes up.
@@ -1089,7 +1133,7 @@ def test_graph_file_click_opens_a_diff_editor(browser, harness, worktree):
         assert shows[-1]["sha"] == harness.shas["second"]
         assert shows[-1]["path"] == "dir/nested.py"
         # The renamed file: the left side is the parent's a.txt.
-        files.filter(has_text="b.txt").first.click()
+        _panel_click(files.filter(has_text="b.txt").first)
         _wait_tab_count(page, tabs_before + 2)
         page.wait_for_function(
             f"Array.from(document.querySelectorAll('.chat-tab'))"
@@ -1100,17 +1144,17 @@ def test_graph_file_click_opens_a_diff_editor(browser, harness, worktree):
         assert diff["original"] == "a\n" and diff["modified"] == "a\n"
         assert _sent(frames, "gitShow")[-1]["origPath"] == "a.txt"
         # Clicking the same file again brings its tab back, no new tab.
-        files.filter(has_text="nested.py").first.click()
+        _panel_click(files.filter(has_text="nested.py").first)
         page.wait_for_timeout(500)
         assert page.locator(".chat-tab").count() == tabs_before + 2
         # The menu's Open Changes on a file of a commit is the same diff.
-        files.filter(has_text="nested.py").first.click(button="right")
+        _panel_click(files.filter(has_text="nested.py").first, button="right")
         assert _menu_labels(page) == ["Open Changes", "Open File"]
         page.keyboard.press("Escape")
         # A file of the main checkout's "Uncommitted changes" row:
         # HEAD on the left, the working tree on the right.
         rows = page.locator("#scm-graph .scm-commit.is-worktree")
-        rows.first.click()
+        _panel_click(rows.first)
         wt_files = rows.first.locator("xpath=following-sibling::*[1]").locator(".scm-row")
         wt_files.filter(has_text="README.md").first.click()
         _wait_tab_count(page, tabs_before + 3)
@@ -1125,11 +1169,11 @@ def test_graph_file_click_opens_a_diff_editor(browser, harness, worktree):
         assert last["sha"] == "" and last["mode"] == "diff"
         assert last["workDir"] == str(harness.work_dir)
         # Its context menu offers Open Changes ahead of Open File.
-        wt_files.filter(has_text="README.md").first.click(button="right")
+        _panel_click(wt_files.filter(has_text="README.md").first, button="right")
         assert _menu_labels(page)[:2] == ["Open Changes", "Open File"]
         page.keyboard.press("Escape")
         # The linked worktree's row diffs ITS HEAD against ITS file.
-        rows.nth(1).click()
+        _panel_click(rows.nth(1))
         lt_files = rows.nth(1).locator("xpath=following-sibling::*[1]").locator(".scm-row")
         lt_files.filter(has_text="README.md").first.click()
         _wait_tab_count(page, tabs_before + 4)
@@ -1138,7 +1182,7 @@ def test_graph_file_click_opens_a_diff_editor(browser, harness, worktree):
         last = _sent(frames, "gitShow")[-1]
         assert last["workDir"] == str(worktree)
         # A deleted file: the right side is empty.
-        wt_files.filter(has_text="b.txt").first.click()
+        _panel_click(wt_files.filter(has_text="b.txt").first)
         _wait_tab_count(page, tabs_before + 5)
         page.wait_for_function(
             "Array.from(document.querySelectorAll('.chat-tab'))"
@@ -1408,30 +1452,6 @@ def _widen_content_pane(page) -> None:
             return
     raise AssertionError(
         "chat pane share stuck at " + str(resizer.get_attribute("aria-valuenow"))
-    )
-
-
-def _hide_panel(page) -> None:
-    """Desktop: the task-info panel lies over the content pane's right
-    edge, where the PDF toolbar sits; press in the pane to slide the
-    panel away (a phone stacks the surfaces, nothing to hide)."""
-    if not page.evaluate("document.body.classList.contains('remote-desktop')"):
-        return
-    page.dispatch_event("#content-tab-area", "pointerdown")
-    page.wait_for_selector("body.meta-hidden", state="attached", timeout=5000)
-
-
-def _show_panel(page) -> None:
-    """Bring the task-info panel (and the Explorer in it) back from its
-    drawer after a press in the content pane slid it off screen."""
-    if not page.evaluate("document.body.classList.contains('meta-hidden')"):
-        return
-    page.click("#meta-drawer")
-    page.wait_for_function(
-        "() => !document.body.classList.contains('meta-hidden')"
-        " && document.getElementById('meta-panel').getBoundingClientRect().right"
-        "    <= window.innerWidth + 1",
-        timeout=5000,
     )
 
 
@@ -1723,7 +1743,7 @@ def test_pdf_viewer_gives_up_after_one_retry(browser, harness, worktree):
         assert _pdf_note(page).startswith("Cannot display report.pdf: TypeError: Failed to fetch")
         assert Counter(requests) == {"pdf.min.mjs": 2, "pdf.worker.min.mjs": 2}
         context.unroute(_PDFJS_BUILD_GLOB)
-        _explorer_row(page, "report.pdf").click()
+        _panel_click(_explorer_row(page, "report.pdf"))
         # The reopened tab replaces the failed viewer (and its note).
         page.locator(_PDF_VIEWER + " div.content-binary-note").wait_for(
             state="detached", timeout=15000
@@ -2261,7 +2281,7 @@ def test_add_folder_set_work_dir_and_remove(browser, harness, worktree):
         # New File... on the added folder lands on disk inside it (the
         # daemon accepted the folder as the action's workDir).
         plain_root = page.locator(_row_at(plain, ".is-root"))
-        plain_root.click(button="right")
+        _panel_click(plain_root, button="right")
         labels = _menu_labels(page)
         assert "Add Folder to Explorer..." in labels
         assert "Set as Working Directory" in labels

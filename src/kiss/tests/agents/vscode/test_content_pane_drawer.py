@@ -12,11 +12,11 @@ and task-info panel.
   task-info panel, and never runs under the panel.
 * The machine name sits in bold green at the top centre of the chat.
 * A file opened from the Explorer opens the content pane, which runs
-  under the task-info panel: the panel lies ON TOP of it.
-* A click in the content pane slides the panel off the right edge
-  (animated) and leaves a drawer tab there; the tab brings the panel
-  back.  Closing the last content tab docks the panel beside the chat
-  again.
+  under the task-info panel, and slides the panel off the right edge
+  (animated), leaving a drawer tab there; the tab brings the panel back
+  ON TOP of the pane.
+* A click in the content pane slides the panel off again.  Closing the
+  last content tab docks the panel beside the chat again.
 
 Every test drives a REAL headless Chromium (Playwright) against a REAL
 :class:`RemoteAccessServer` over ``wss://`` whose work dir is a REAL
@@ -65,6 +65,24 @@ def _open_file(page, name: str = "feature.txt") -> None:
     )
 
 
+def _bring_panel_back(page) -> None:
+    """The file open slid the task-info panel off the right edge; the
+    drawer tab brings it back on top of the content pane."""
+    page.wait_for_selector("body.meta-hidden", state="attached", timeout=5000)
+    page.locator("#meta-drawer").click()
+    page.wait_for_selector("body:not(.meta-hidden)", state="attached", timeout=5000)
+    page.wait_for_function(
+        "w => document.getElementById('meta-panel').getBoundingClientRect().right <= w + 1"
+        " && document.getElementById('meta-panel').getBoundingClientRect().left < w - 100",
+        arg=page.evaluate("innerWidth"),
+        timeout=5000,
+    )
+    page.wait_for_function(
+        "getComputedStyle(document.getElementById('meta-drawer')).visibility === 'hidden'",
+        timeout=5000,
+    )
+
+
 def test_no_content_pane_until_a_file_opens_and_the_panel_overlays_it(browser, harness):
     context, page, _ = _open_page(browser, harness)
     try:
@@ -83,6 +101,9 @@ def test_no_content_pane_until_a_file_opens_and_the_panel_overlays_it(browser, h
         assert output["width"] > 300
 
         _open_file(page)
+        # The open slides the panel off the pane; the drawer brings it
+        # back over it.
+        _bring_panel_back(page)
         content = _rect(page, "#content-tab-area")
         panel = _rect(page, "#meta-panel")
         width = page.evaluate("innerWidth")
@@ -207,6 +228,16 @@ def test_click_in_the_pane_hides_the_panel_and_the_drawer_brings_it_back(browser
         _open_file(page)
         width = page.evaluate("innerWidth")
         height = page.evaluate("innerHeight")
+        # The open itself hid the panel: the drawer shows and brings it
+        # back.
+        page.wait_for_selector("body.meta-hidden", state="attached", timeout=5000)
+        assert page.locator("#meta-panel").get_attribute("inert") is not None
+        page.wait_for_function(
+            "getComputedStyle(document.getElementById('meta-drawer')).opacity === '1'",
+            timeout=5000,
+        )
+        _bring_panel_back(page)
+        assert page.locator("#meta-panel").get_attribute("inert") is None
         panel = _rect(page, "#meta-panel")
         content = _rect(page, "#content-tab-area")
         # The panel slides, it does not jump: a transform transition.
@@ -318,6 +349,7 @@ def test_a_click_inside_the_preview_frame_hides_the_panel_too(browser, harness):
     context, page, _ = _open_page(browser, harness)
     try:
         _open_file(page, "README.md")
+        _bring_panel_back(page)
         frame = _rect(page, _VIEW + ".content-html-frame")
         assert frame["width"] > 100 and frame["height"] > 100
         panel = _rect(page, "#meta-panel")

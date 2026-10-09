@@ -2748,6 +2748,44 @@ async function main() {
     win.close();
   });
 
+  await test('a folder clicked in the picker is highlighted or entered, never opened as a file', async () => {
+    // The picker's rows carry their folder in data-path, like the
+    // chat's file links do; the file-link click handler must leave
+    // them alone (a directory "opened" as a file would land a listing
+    // tab in the content pane and slide the task-info panel off).
+    const {win, posted} = makeWebview();
+    openExplorer(win, posted, []);
+    click(win, byId(win, 'explorer-pick-folder'));
+    const picker = byId(win, 'folder-picker');
+    let pick = ofType(posted, 'listDir').filter(m =>
+      String(m.token).startsWith('picker:'),
+    );
+    send(win, {
+      type: 'dirListing',
+      token: pick[pick.length - 1].token,
+      path: WD,
+      root: WD,
+      entries: [{name: 'dir', path: WD + '/dir', isDir: true}],
+    });
+    const item = picker.querySelector('.folder-picker-item');
+    const opens = ofType(posted, 'openFile').length;
+    click(win, item);
+    assert.strictEqual(item.getAttribute('aria-selected'), 'true');
+    click(win, item);
+    item.dispatchEvent(new win.MouseEvent('dblclick', {bubbles: true}));
+    pick = ofType(posted, 'listDir').filter(m =>
+      String(m.token).startsWith('picker:'),
+    );
+    assert.strictEqual(pick[pick.length - 1].path, WD + '/dir', 'entered');
+    assert.strictEqual(
+      ofType(posted, 'openFile').length,
+      opens,
+      'no folder was opened as a file',
+    );
+    key(win, win.document, 'Escape');
+    win.close();
+  });
+
   await test('Set as Working Directory keeps the keyboard in the tree past the composer focus retries', async () => {
     const {win, posted} = makeWebview();
     openExplorer(win, posted, []);
