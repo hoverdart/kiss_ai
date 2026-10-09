@@ -229,6 +229,72 @@ def test_an_open_file_is_the_third_screen(browser, harness):
         context.close()
 
 
+def test_mobile_chat_hides_editor_tabs_without_closing_them(browser, harness):
+    """Editor tabs belong to the file screen, not the mobile chat header."""
+    context, page, cdp = _open_mobile(browser, harness)
+    try:
+        _open_file_from_drawer(page, "feature.txt")
+        _open_file_from_drawer(page, "README.md")
+        files = page.locator("#tab-list .content-tab")
+        file_ids = files.evaluate_all("els => els.map(el => el.dataset.tabId)")
+        assert len(file_ids) == 2
+
+        _swipe_right(cdp)
+        _wait_screen(page, "chat")
+        assert page.locator("#output").is_visible()
+        assert page.locator("#task-input").is_visible()
+        assert files.count() == 0
+        # A lone chat needs no strip, including no empty editor-tab row.
+        assert not page.locator("#tab-bar").is_visible()
+        assert not page.locator("#content-tab-bar").is_visible()
+
+        # Desktop still shows the retained files on its separate editor row.
+        page.set_viewport_size({"width": 900, "height": 844})
+        page.wait_for_selector("body.remote-desktop", state="attached")
+        desktop_files = page.locator("#content-tab-list .content-tab")
+        assert desktop_files.evaluate_all(
+            "els => els.map(el => el.dataset.tabId)"
+        ) == file_ids
+        assert page.locator("#content-tab-bar").is_visible()
+        assert files.count() == 0
+
+        # Crossing back to mobile must not leak that row into the chat.
+        page.set_viewport_size({"width": 899, "height": 844})
+        page.wait_for_selector("body.remote-desktop", state="detached")
+        assert files.count() == 0
+        assert not page.locator("#tab-bar").is_visible()
+        page.set_viewport_size({"width": 390, "height": 844})
+        _swipe_left(cdp)
+        _wait_screen(page, "file")
+        assert files.evaluate_all(
+            "els => els.map(el => el.dataset.tabId)"
+        ) == file_ids
+        assert page.locator("#tab-bar").is_visible()
+        assert page.locator("#content-tab-area").is_visible()
+        assert "README.md" in page.locator(
+            "#tab-list .content-tab.active"
+        ).inner_text()
+
+        # Both files remain selectable and closable on the editor screen.
+        feature = files.filter(has_text="feature.txt")
+        feature.click()
+        assert "feature.txt" in page.locator(
+            "#tab-list .content-tab.active"
+        ).inner_text()
+        feature.locator(".chat-tab-close").click()
+        _wait_screen(page, "file")
+        assert files.count() == 1
+        assert "README.md" in files.inner_text()
+        files.locator(".chat-tab-close").click()
+        _wait_screen(page, "chat")
+        assert not page.locator("#tab-bar").is_visible()
+        # No file remains: the next swipe skips the editor screen.
+        _swipe_left(cdp)
+        _wait_screen(page, "info")
+    finally:
+        context.close()
+
+
 def test_drags_that_are_not_swipes_keep_the_screen(browser, harness):
     context, page, cdp = _open_mobile(browser, harness)
     try:

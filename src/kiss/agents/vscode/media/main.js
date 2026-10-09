@@ -1900,9 +1900,10 @@
   // (#tab-list) holds the chat on screen with the sub-agents it
   // spawned, in tab order, and appears only when it has more than one
   // tab.  Where the chat and the files it opens share one surface (the
-  // mobile remote webapp, the VS Code sidebar chat), the strip also
-  // lists every open file, browser and terminal tab, and showing one
-  // of them replaces the chat (body.content-tab-open).  The desktop
+  // mobile remote webapp, the VS Code sidebar chat), showing a file,
+  // browser or terminal tab replaces the chat (body.content-tab-open).
+  // The strip lists these tabs on the mobile file screen or throughout
+  // the VS Code sidebar chat, but not on the mobile chat screen. The desktop
   // remote webapp SPLITS the window instead (splitLayout): the chat
   // pane on the left keeps the strip, and the content pane on the
   // right has its own tab row (#content-tab-list) with every content
@@ -2004,9 +2005,16 @@
       null;
     const group = new Set(shownRoot ? groupMembers(shownRoot) : []);
     const split = splitLayout();
-    // Content tabs have their own row in the split layout; a stacked
-    // surface lists every one of them on the strip, whoever opened it.
-    const members = tabs.filter(t => (t.isContentTab ? !split : group.has(t)));
+    // Desktop content tabs have their own row. On mobile they appear
+    // on the file screen, never in the chat header. VS Code's stacked
+    // surface keeps its combined strip.
+    const showContentTabs =
+      !split &&
+      (!document.body.classList.contains('remote-chat') ||
+        active?.isContentTab);
+    const members = tabs.filter(t =>
+      t.isContentTab ? showContentTabs : group.has(t),
+    );
 
     // Checked on <body> inline — not via EDITOR_TAB_MODE — so the
     // function stays self-contained.
