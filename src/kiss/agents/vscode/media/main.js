@@ -100,13 +100,30 @@
     return x.toPrecision(3) + units[ui];
   }
 
-  // Dollar cost with exactly two digits after the decimal point.
+  // Dollar cost with two digits after the decimal point, or four when
+  // the amount is positive but would round to $0.00: a cheap task's
+  // spend must not read as free (below $0.00005 it reads "<$0.0001").
   // Accepts numbers or server strings like "$0.4123"; non-numeric
   // values (e.g. "N/A") pass through untouched.
   function fmtCost(c) {
     const n = Number(String(c).replace(/[$,\s]/g, ''));
     if (!Number.isFinite(n)) return String(c);
+    if (n > 0 && n < 0.005)
+      return n < 0.00005 ? '<$0.0001' : '$' + n.toFixed(4);
     return '$' + n.toFixed(2);
+  }
+
+  // The cost a usage_info / result event carries, as a number: the exact
+  // `cost_usd` when the daemon sends it, else the parsed four-decimal
+  // `cost` string (older daemons), so a $0.000049 task is not shown as
+  // free.  null when the event carries no cost (missing, '' or 'N/A');
+  // an exact zero is a cost and is returned as 0.
+  function eventCost(ev) {
+    if (typeof ev.cost_usd === 'number' && Number.isFinite(ev.cost_usd))
+      return ev.cost_usd;
+    if (ev.cost == null || ev.cost === '') return null;
+    const n = Number(String(ev.cost).replace(/[$,\s]/g, ''));
+    return Number.isFinite(n) ? n : null;
   }
 
   function fmtElapsedMs(ms) {
@@ -6329,7 +6346,7 @@
       } else if (state.updatedAt) {
         status = 'Updated ' + shortClockTime(state.updatedAt);
         const cost = Number(state.cost);
-        if (cost > 0) status += ' \u00b7 $' + cost.toFixed(2);
+        if (cost > 0) status += ' \u00b7 ' + fmtCost(cost);
       } else if (firstDueAt) {
         status = 'First update at ' + shortClockTime(firstDueAt);
       }
@@ -13941,7 +13958,7 @@
       fmtTokens(ev.total_tokens || 0) +
       '</b></span>' +
       '<span>Cost <b class="rs-cost">' +
-      esc(fmtCost(ev.cost || 'N/A')) +
+      esc(eventCost(ev) == null ? 'N/A' : fmtCost(eventCost(ev))) +
       '</b></span>' +
       '</div></div><div class="rc-body md-body' +
       (usePre ? ' pre' : '') +
@@ -14903,8 +14920,8 @@
         tState.resultPanelEl = target.lastElementChild;
         if (statusTokens && ev.total_tokens)
           statusTokens.textContent = 'Tokens: ' + fmtTokens(ev.total_tokens);
-        if (statusBudget && ev.cost && ev.cost !== 'N/A')
-          statusBudget.textContent = 'Cost: ' + fmtCost(ev.cost);
+        if (statusBudget && eventCost(ev) != null)
+          statusBudget.textContent = 'Cost: ' + fmtCost(eventCost(ev));
         if (ev.step_count) updateStepCount(ev.step_count);
         break;
       }
@@ -14971,11 +14988,14 @@
         break;
       }
       case 'usage_info': {
-        if (ev.total_tokens != null && ev.cost != null) {
+        if (
+          ev.total_tokens != null &&
+          (ev.cost != null || ev.cost_usd != null)
+        ) {
           if (statusTokens)
             statusTokens.textContent = 'Tokens: ' + fmtTokens(ev.total_tokens);
-          if (statusBudget && ev.cost !== 'N/A')
-            statusBudget.textContent = 'Cost: ' + fmtCost(ev.cost);
+          if (statusBudget && eventCost(ev) != null)
+            statusBudget.textContent = 'Cost: ' + fmtCost(eventCost(ev));
           if (statusSteps && ev.total_steps != null)
             statusSteps.textContent = 'Steps: ' + ev.total_steps;
           // Spend folded after the run's terminal result (the pre-run
@@ -14990,8 +15010,8 @@
             const tokensEl = panel.querySelector('.rs-tokens');
             if (tokensEl) tokensEl.textContent = fmtTokens(ev.total_tokens);
             const costEl = panel.querySelector('.rs-cost');
-            if (costEl && ev.cost !== 'N/A')
-              costEl.textContent = fmtCost(ev.cost);
+            if (costEl && eventCost(ev) != null)
+              costEl.textContent = fmtCost(eventCost(ev));
           }
         } else {
           updateUsageMetrics(ev.text || '');

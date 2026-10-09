@@ -780,7 +780,10 @@ type ToWebviewMessageBody =
       success?: boolean;
       is_continue?: boolean;
       total_tokens?: number;
+      // ``cost`` is the four-decimal display string; ``cost_usd`` the
+      // unrounded USD figure a dispatching parent charges to its ledger.
       cost?: string;
+      cost_usd?: number;
       step_count?: number;
     }
   | {
@@ -788,6 +791,7 @@ type ToWebviewMessageBody =
       text?: string;
       total_tokens?: number;
       cost?: string;
+      cost_usd?: number;
       total_steps?: number;
       cache_read?: number;
       model?: string;

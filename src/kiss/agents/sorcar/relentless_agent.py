@@ -1443,6 +1443,7 @@ class RelentlessAgent(Base):
                             step_count=executor.step_count,
                             total_tokens=executor.total_tokens_used,
                             cost=f"${executor.budget_used:.4f}",
+                            cost_usd=executor.budget_used,
                         )
                     return error_result
                 if not self._append_basic_tools:
@@ -1735,6 +1736,7 @@ class RelentlessAgent(Base):
             step_count=steps,
             total_tokens=tokens,
             cost=f"${budget:.4f}",
+            cost_usd=budget,
         )
 
     def _emit_usage_totals(self) -> None:
@@ -1777,11 +1779,12 @@ class RelentlessAgent(Base):
             if callable(broadcast):
                 broadcast({
                     "type": "usage_info", "text": text, "total_tokens": tokens,
-                    "cost": cost, "total_steps": steps,
+                    "cost": cost, "cost_usd": budget, "total_steps": steps,
                 })
                 return
             self.printer.print(
-                text, type="usage_info", total_tokens=tokens, cost=cost, total_steps=steps,
+                text, type="usage_info", total_tokens=tokens, cost=cost, cost_usd=budget,
+                total_steps=steps,
             )
 
     def _usage_net_of_printer_offsets(self) -> tuple[float, int, int]:

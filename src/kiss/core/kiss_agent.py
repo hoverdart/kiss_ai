@@ -580,6 +580,7 @@ class KISSAgent(Base):
                 step_count=self.step_count,
                 total_tokens=self.total_tokens_used,
                 cost=f"${self.budget_used:.4f}",
+                cost_usd=self.budget_used,
             )
 
     def _run_non_agentic(self) -> str:
@@ -874,6 +875,7 @@ class KISSAgent(Base):
                 type="usage_info",
                 total_tokens=self.total_tokens_used,
                 cost=f"${self.budget_used:.4f}",
+                cost_usd=self.budget_used,
                 total_steps=self.step_count,
                 cache_read=self.last_cache_read_tokens,
                 model=self.model.model_name,
