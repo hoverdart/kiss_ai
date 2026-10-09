@@ -11,8 +11,8 @@ would clobber:
 
 * ``AUTOROUTER.md`` -- the observed model evidence the autorouter SEA
   splices into its prompt: a stamp line ``_Observed in the task history,
-  refreshed YYYY-MM-DD by /rsi7d._``, a window paragraph, one table (a row
-  per model, its task count in the second column) and bullets.  ``/rsi7d``
+  refreshed YYYY-MM-DD by /rsi._``, a window paragraph, one table (a row
+  per model, its task count in the second column) and bullets.  ``/rsi``
   rewrites it wholesale on each machine from that machine's copy of the
   task history.  Merge rule: the copy with the later stamp wins outright
   (evidence from an older window is stale, not complementary); two copies
@@ -292,7 +292,7 @@ def _task_count(row: str) -> int | None:
     """Return the integer in a row's second cell (``1,809`` counts too), or ``None``.
 
     ``None`` also for a row whose first cell starts with "other" (the
-    "others (7 models)" tally ``/rsi7d`` writes last), so it stays last.
+    "others (7 models)" tally ``/rsi`` writes last), so it stays last.
     """
     parts = cells(row)
     if len(parts) < 2 or parts[0].lower().startswith("other"):

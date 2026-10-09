@@ -929,7 +929,7 @@ def dispatch_result(
     carries the sub-task's persisted ``task_id``) — or a clean error
     string.  It raises only for the inherited-budget case described
     under *inherit*.  Callers that need the sub-task's id
-    (rsi7d's clone replays) use this; :func:`format_dispatch_result`
+    (rsi's clone replays) use this; :func:`format_dispatch_result`
     formats the result for a model.
 
     Args:
@@ -979,7 +979,7 @@ def dispatch_result(
             acts on an external service from a scratch directory on
             the host and must not inherit the caller's chat context or
             container.  ``False`` (the default) also for programmatic
-            callers that pass every value explicitly (rsi7d's clone
+            callers that pass every value explicitly (rsi's clone
             replays).  When the budget is inherited and the caller has
             nothing left to spend, ``BudgetExceededError`` propagates.
         settings: The SEA's resolved settings

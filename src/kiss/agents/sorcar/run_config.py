@@ -13,7 +13,7 @@ inherited from the calling agent and which inherited or default values
 the SEA pinned to its own.  :func:`run_config_line` renders that record
 as the ``ran:`` line every ``run_agent`` / ``run_parallel`` result
 starts with, so the calling model sees what its sub-task actually ran
-with, and ``rsi7d`` can mine the persisted events for the configuration
+with, and ``rsi`` can mine the persisted events for the configuration
 causes of failures.
 
 An explicit argument of the call is never pinned over: it wins, or (for

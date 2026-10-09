@@ -41,7 +41,7 @@ when this file loads: a dated table plus bullets on what this installation's
 own task history shows about each model's cost, speed and reliability, at
 most :data:`EVIDENCE_MAX_CHARS` characters of it (:func:`observed_evidence`
 cuts a longer file at a line boundary).
-:mod:`kiss.agents.seas.rsi7d.rsi7d_sea` rewrites that file from
+:mod:`kiss.agents.seas.rsi.rsi_sea` rewrites that file from
 ``$KISS_HOME/history.db`` (so refreshing the evidence never edits this SEA),
 refusing text over the same cap, and the protocol treats it as the
 posterior over the tier-order prior.
@@ -51,8 +51,8 @@ the methods ``system_prompt()`` / ``register_as_model()`` /
 ``on_picked_as_model()`` of :class:`AutorouterSea` follow the SEA contract in
 :mod:`kiss.agents.seas.base.base_sea`.  Picking ``autorouter`` in the model picker
 also keeps the evidence fresh: the ``on_picked_as_model(work_dir)`` hook
-(:func:`schedule_weekly_rsi7d`) makes sure an enabled weekly cron job that
-runs ``/rsi7d autorouter`` exists, creating or resuming it when it does not.
+(:func:`schedule_weekly_rsi`) makes sure an enabled weekly cron job that
+runs ``/rsi autorouter`` exists, creating or resuming it when it does not.
 """
 
 from __future__ import annotations
@@ -71,49 +71,49 @@ from kiss.core.config import kiss_home
 from kiss.core.models.model_info import MODEL_INFO, get_available_models, get_default_model
 from kiss.server.agent_state import current_agent
 
-RSI7D_SEA_RELATIVE = "src/kiss/agents/seas/rsi7d/rsi7d_sea.py"
-"""The rsi7d SEA's path inside a KISS checkout; the weekly job relays to it."""
+RSI_SEA_RELATIVE = "src/kiss/agents/seas/rsi/rsi_sea.py"
+"""The rsi SEA's path inside a KISS checkout; the weekly job relays to it."""
 
-RSI7D_JOB_NAME = "Weekly rsi7d: autorouter evidence and prompt (Sat 1am PT)"
-"""Name of the weekly ``/rsi7d autorouter`` cron job; :func:`schedule_weekly_rsi7d`
+RSI_JOB_NAME = "Weekly rsi: autorouter evidence and prompt (Sat 1am PT)"
+"""Name of the weekly ``/rsi autorouter`` cron job; :func:`schedule_weekly_rsi`
 recognises the job by this name alone, so a user may retune its budget or schedule."""
 
-RSI7D_JOB_SCHEDULE = "0 1 * * 6"
+RSI_JOB_SCHEDULE = "0 1 * * 6"
 """Saturday 01:00 America/Los_Angeles (cron expressions are Pacific-evaluated), a day
-before the hand-scheduled full ``/rsi7d all`` sweep so the two never share the checkout."""
+before the hand-scheduled full ``/rsi all`` sweep so the two never share the checkout."""
 
-RSI7D_JOB_MODEL = "claude-fable-5-1"
-"""Model of the job and of the rsi7d run when runnable, else :func:`orchestrator_model`."""
+RSI_JOB_MODEL = "claude-fable-5-1"
+"""Model of the job and of the rsi run when runnable, else :func:`orchestrator_model`."""
 
-RSI7D_JOB_BUDGET_USD = 25.0
-"""Budget (USD) the relay passes explicitly to the nested rsi7d run.
+RSI_JOB_BUDGET_USD = 25.0
+"""Budget (USD) the relay passes explicitly to the nested rsi run.
 
 An explicit ``run_agent`` argument wins over the SEA's ``settings()``
 (:data:`~kiss.agents.sorcar.sea_settings.PRECEDENCE_RULE`), so this value,
-not rsi7d's own ``max_budget`` setting, caps the run; the dollar sentence
-of :data:`RSI7D_TASK` tells the run how much of it to spend.
+not rsi's own ``max_budget`` setting, caps the run; the dollar sentence
+of :data:`RSI_TASK` tells the run how much of it to spend.
 """
 
-RSI7D_JOB_RELAY_BUDGET_USD = 5.0
-"""What the relay session that calls ``run_agent`` may spend on top of the rsi7d run."""
+RSI_JOB_RELAY_BUDGET_USD = 5.0
+"""What the relay session that calls ``run_agent`` may spend on top of the rsi run."""
 
-RSI7D_JOB_TIMEOUT_SECONDS = 2 * 3600
-"""Timeout of the nested rsi7d run; the job gets ten more minutes for its relay."""
+RSI_JOB_TIMEOUT_SECONDS = 2 * 3600
+"""Timeout of the nested rsi run; the job gets ten more minutes for its relay."""
 
-RSI7D_TASK = (
+RSI_TASK = (
     "autorouter. Work in the current work dir; edit only the autorouter SEA through your "
     "tools. Mine the last 7 days of autorouter runs and of the models it dispatched to, rewrite "
     "the observed model evidence with write_autorouter_evidence, and patch the autorouter "
     "prompt only where its own runs show a repeatable failure. Spend at most $20 in total and "
     "at most $8 on replays; replay only tasks that changed nothing on disk, with "
     "replay_in_place. "
-    "Delete tmp/rsi7d/replays before finishing. Write the report to "
-    "./reports/rsi7d-autorouter-<date>.md and, when the work dir is a git checkout, git add it."
+    "Delete tmp/rsi/replays before finishing. Write the report to "
+    "./reports/rsi-autorouter-<date>.md and, when the work dir is a git checkout, git add it."
 )
-"""The ``/rsi7d`` task text of the weekly job: the scope ``autorouter`` first, then the
-instructions (see ``rsi7d_sea.parse_scope``)."""
+"""The ``/rsi`` task text of the weekly job: the scope ``autorouter`` first, then the
+instructions (see ``rsi_sea.parse_scope``)."""
 
-RSI7D_JOB_PROMPT = (
+RSI_JOB_PROMPT = (
     "Call the run_agent tool IMMEDIATELY, as your very first action, with these arguments "
     "and no others:\n"
     "  agent        = {sea!r}\n"
@@ -127,12 +127,12 @@ RSI7D_JOB_PROMPT = (
     "autorouter evidence was rewritten and whether its prompt was patched) as your final "
     "summary."
 )
-"""Prompt of the weekly job: a ``run_agent`` directive to the rsi7d SEA.
+"""Prompt of the weekly job: a ``run_agent`` directive to the rsi SEA.
 
-A cron prompt job cannot be the literal text ``/rsi7d autorouter``: the
+A cron prompt job cannot be the literal text ``/rsi autorouter``: the
 scheduler prepends its unattended-run preamble, so the text no longer
 starts with the slash command and the SEA would not be dispatched.  The
-relay calls ``run_agent`` on the rsi7d file next to this one instead, in
+relay calls ``run_agent`` on the rsi file next to this one instead, in
 the job's own work directory (its worktree of the checkout when there is
 one), so the child neither nests another worktree nor commits by itself.
 """
@@ -176,7 +176,7 @@ TIERS: dict[str, tuple[tuple[str, str], ...]] = {
 
 The order is by measured coding quality per dollar as of 2026-09-24; the
 notes carry what the 7-day task history measured (see the "Observed model
-evidence" block of :data:`SYSTEM_PROMPT`, refreshed by ``/rsi7d``).  Edit
+evidence" block of :data:`SYSTEM_PROMPT`, refreshed by ``/rsi``).  Edit
 the order when models or prices change; prices themselves are read from
 the catalog, never stored here.
 """
@@ -203,22 +203,22 @@ one is cut and ends with ``...`` so a ledger row stays one terse line."""
 
 EVIDENCE_NAME = "AUTOROUTER.md"
 """File name, inside the KISS home directory, of the observed model evidence
-``/rsi7d`` refreshes: a stamp line, a dated table and bullets."""
+``/rsi`` refreshes: a stamp line, a dated table and bullets."""
 
 EVIDENCE_MAX_CHARS = 2500
 """Most characters of the evidence file that reach the prompt (about 700 tokens).
-``/rsi7d``'s ``write_autorouter_evidence`` refuses a longer text; :func:`observed_evidence`
+``/rsi``'s ``write_autorouter_evidence`` refuses a longer text; :func:`observed_evidence`
 cuts a longer file (hand-edited, or merged across machines) at a line boundary."""
 
 EVIDENCE_CUT = (
-    f"_[evidence cut at {EVIDENCE_MAX_CHARS} characters; `/rsi7d` rewrites the file within "
+    f"_[evidence cut at {EVIDENCE_MAX_CHARS} characters; `/rsi` rewrites the file within "
     "that size]_"
 )
 """Line appended in place of the part of an over-long evidence file the prompt drops."""
 
 NO_EVIDENCE = (
     f"_No observed evidence yet: `~/{HOME_DIR}/AUTOROUTER.md` is missing or empty. Route on the "
-    "tier order alone until `/rsi7d all` has measured this installation's task history._"
+    "tier order alone until `/rsi all` has measured this installation's task history._"
 )
 """What the prompt says in place of the evidence when the file is missing or empty."""
 
@@ -228,7 +228,7 @@ def evidence_path() -> Path:
 
     The KISS home is ``$KISS_HOME`` when set, else the brand's home directory
     (``~/.kiss`` for KISS Sorcar, ``~/.s10s`` for Seamless Loop): the
-    directory of ``history.db`` and the ledger, so the evidence ``/rsi7d``
+    directory of ``history.db`` and the ledger, so the evidence ``/rsi``
     measures from the task history lives next to that history and travels
     with it.
     """
@@ -316,7 +316,7 @@ availability come from `model_menu`, `pick_model` and `estimate_cost`; never inv
 
 ## Observed model evidence
 
-From `~/{HOME_DIR}/AUTOROUTER.md` (rewritten by `/rsi7d`): the posterior over the tier-order
+From `~/{HOME_DIR}/AUTOROUTER.md` (rewritten by `/rsi`): the posterior over the tier-order
 prior. A model with a high observed failure share for the role goes into `exclude` even
 when `pick_model` ranks it first; prefer lower observed $ and s/step backed by at least 10
 tasks.
@@ -332,7 +332,7 @@ tasks.
 - Never spawn a sub-agent to run a shell command; run it inline (`run_commands_parallel`
   for many).
 
-## Lessons from recent runs (rsi7d)
+## Lessons from recent runs (rsi)
 
 - Nothing dispatched: no `decide`, `observed_call_costs` or `estimate_cost`; they follow
   `pick_model`. Actual cost = the last `Budget:` figure plus each child's `run_agent`
@@ -375,7 +375,7 @@ class AutorouterSea(BaseSea):
         return True
 
     def on_picked_as_model(self, work_dir: str) -> str:
-        """Schedule the weekly ``/rsi7d autorouter`` job when ``autorouter`` is picked as the model.
+        """Schedule the weekly ``/rsi autorouter`` job when ``autorouter`` is picked as the model.
 
         The daemon runs this hook when ``autorouter`` is picked in the model
         picker and once per run whose model is ``autorouter``
@@ -385,9 +385,9 @@ class AutorouterSea(BaseSea):
             work_dir: Work directory of the run.
 
         Returns:
-            :func:`schedule_weekly_rsi7d`'s note.
+            :func:`schedule_weekly_rsi`'s note.
         """
-        return schedule_weekly_rsi7d(work_dir)
+        return schedule_weekly_rsi(work_dir)
 
     def system_prompt(self, system_prompt: str) -> str:
         """Add the routing protocol to the default Sorcar system prompt."""
@@ -699,8 +699,8 @@ def kiss_checkout(work_dir: str) -> str:
 
     A checkout is the nearest directory upward from *work_dir* that holds
     both ``.git`` (a directory, or the file of a git worktree) and the
-    bundled SEAs (:data:`RSI7D_SEA_RELATIVE`); the weekly job runs there so
-    rsi7d edits and commits the checkout's SEAs instead of the installed
+    bundled SEAs (:data:`RSI_SEA_RELATIVE`); the weekly job runs there so
+    rsi edits and commits the checkout's SEAs instead of the installed
     copy the daemon runs from.
 
     Args:
@@ -717,7 +717,7 @@ def kiss_checkout(work_dir: str) -> str:
         if not (base / ".git").exists():
             continue
         checkout = _owning_checkout(base)
-        if (checkout / RSI7D_SEA_RELATIVE).is_file():
+        if (checkout / RSI_SEA_RELATIVE).is_file():
             return str(checkout)
     return ""
 
@@ -737,13 +737,13 @@ def _owning_checkout(base: Path) -> Path:
     return (base / checkout).resolve() if linked else base  # gitdir may be relative to base
 
 
-def weekly_rsi7d_job(work_dir: str) -> dict[str, Any]:
-    """Return the ``cron_job("create", ...)`` arguments of the weekly ``/rsi7d autorouter`` job.
+def weekly_rsi_job(work_dir: str) -> dict[str, Any]:
+    """Return the ``cron_job("create", ...)`` arguments of the weekly ``/rsi autorouter`` job.
 
     Inside a KISS checkout (:func:`kiss_checkout`) the job runs in a
     worktree of that checkout, auto-commits, and relays to the checkout's
-    own rsi7d file; elsewhere it runs in a scratch directory and relays to
-    the rsi7d file installed next to this one, which still rewrites the
+    own rsi file; elsewhere it runs in a scratch directory and relays to
+    the rsi file installed next to this one, which still rewrites the
     observed model evidence in ``$KISS_HOME/AUTOROUTER.md``.
 
     Args:
@@ -753,42 +753,42 @@ def weekly_rsi7d_job(work_dir: str) -> dict[str, Any]:
         Keyword arguments for ``cron_job("create", **job)``.
     """
     checkout = kiss_checkout(work_dir)
-    rsi7d_sea = (
-        RSI7D_SEA_RELATIVE
+    rsi_sea = (
+        RSI_SEA_RELATIVE
         if checkout
-        else str(Path(__file__).resolve().parents[1] / "rsi7d" / "rsi7d_sea.py")
+        else str(Path(__file__).resolve().parents[1] / "rsi" / "rsi_sea.py")
     )
     model_name = (
-        RSI7D_JOB_MODEL if RSI7D_JOB_MODEL in get_available_models() else orchestrator_model()
+        RSI_JOB_MODEL if RSI_JOB_MODEL in get_available_models() else orchestrator_model()
     )
-    prompt = RSI7D_JOB_PROMPT.format(
-        sea=rsi7d_sea,
-        task=RSI7D_TASK,
-        timeout=str(RSI7D_JOB_TIMEOUT_SECONDS),
-        max_budget=str(RSI7D_JOB_BUDGET_USD),
+    prompt = RSI_JOB_PROMPT.format(
+        sea=rsi_sea,
+        task=RSI_TASK,
+        timeout=str(RSI_JOB_TIMEOUT_SECONDS),
+        max_budget=str(RSI_JOB_BUDGET_USD),
         model=model_name,
     )
     return {
-        "name": RSI7D_JOB_NAME,
-        "schedule": RSI7D_JOB_SCHEDULE,
+        "name": RSI_JOB_NAME,
+        "schedule": RSI_JOB_SCHEDULE,
         "prompt": prompt,
         "model_name": model_name,
-        "max_budget": str(RSI7D_JOB_BUDGET_USD + RSI7D_JOB_RELAY_BUDGET_USD),
-        "timeout": str(RSI7D_JOB_TIMEOUT_SECONDS + 600),
+        "max_budget": str(RSI_JOB_BUDGET_USD + RSI_JOB_RELAY_BUDGET_USD),
+        "timeout": str(RSI_JOB_TIMEOUT_SECONDS + 600),
         "work_dir": checkout,
         "use_worktree": bool(checkout),
         "auto_commit": bool(checkout),
     }
 
 
-def schedule_weekly_rsi7d(work_dir: str) -> str:
-    """Make sure an enabled weekly ``/rsi7d autorouter`` cron job exists.
+def schedule_weekly_rsi(work_dir: str) -> str:
+    """Make sure an enabled weekly ``/rsi autorouter`` cron job exists.
 
-    ``cron_job("ensure")`` looks the job up by :data:`RSI7D_JOB_NAME` in the
+    ``cron_job("ensure")`` looks the job up by :data:`RSI_JOB_NAME` in the
     cron store (``$KISS_HOME/cron/jobs.json``) under the store's lock: an
     enabled one is left as it is (so a retuned schedule or budget
     survives), a paused one is resumed, and when there is none the job
-    of :func:`weekly_rsi7d_job` is created.
+    of :func:`weekly_rsi_job` is created.
 
     Args:
         work_dir: Work directory of the run in which ``autorouter`` was picked.
@@ -799,6 +799,6 @@ def schedule_weekly_rsi7d(work_dir: str) -> str:
     """
     from kiss.agents.sorcar.cron_agent import cron_job
 
-    return cron_job("ensure", **weekly_rsi7d_job(work_dir))
+    return cron_job("ensure", **weekly_rsi_job(work_dir))
 
 

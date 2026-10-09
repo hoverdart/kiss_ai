@@ -2,9 +2,9 @@
 # Contributors:
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
-"""End-to-end tests of rsi7d's permission-gated scope over KISS Sorcar itself.
+"""End-to-end tests of rsi's permission-gated scope over KISS Sorcar itself.
 
-The pseudo-SEA ``sorcar`` (:data:`rsi7d_sea.SORCAR`) covers the plain
+The pseudo-SEA ``sorcar`` (:data:`rsi_sea.SORCAR`) covers the plain
 top-level runs, the system prompt files ``src/kiss/SYSTEM.md`` /
 ``SYSTEM_LITE.md``, the user's ``~/.kiss/AGENTS.md`` and the code under
 ``src/kiss``.  ``request_sorcar_permission`` must grant a target — from a
@@ -28,7 +28,7 @@ import pytest
 import yaml
 
 from kiss.agents.seas import agents_md
-from kiss.agents.seas.rsi7d import rsi7d_sea as sea
+from kiss.agents.seas.rsi import rsi_sea as sea
 from kiss.agents.sorcar import cron_agent, sea_commands
 from kiss.agents.sorcar.persistence import _add_task, _flush_chat_events, _save_task_result
 from kiss.agents.sorcar.worktree_sorcar_agent import WorktreeSorcarAgent
@@ -65,9 +65,9 @@ def checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A fake KISS checkout (a git repository) resolved through the cwd; returns its root."""
     pkg = tmp_path / "src" / "kiss"
     seas = pkg / "agents" / "seas"
-    (seas / "rsi7d").mkdir(parents=True)
+    (seas / "rsi").mkdir(parents=True)
     (seas / "demo").mkdir()
-    shutil.copy(_SEA_PATH, seas / "rsi7d" / "rsi7d_sea.py")
+    shutil.copy(_SEA_PATH, seas / "rsi" / "rsi_sea.py")
     (seas / "demo" / "demo_sea.py").write_text(_DEMO_SEA, encoding="utf-8")
     (pkg / "SYSTEM.md").write_text(_SYSTEM_MD, encoding="utf-8")
     (pkg / "SYSTEM_LITE.md").write_text("{{IDENTITY}}\n\nBe brief.\n", encoding="utf-8")
@@ -108,12 +108,12 @@ class _Registered:
     """Register a real agent as the running task of the calling thread."""
 
     def __init__(self, task: str, ask: Any = None, work_dir: str = "") -> None:
-        self.agent = WorktreeSorcarAgent("rsi7d-sorcar-scope")
+        self.agent = WorktreeSorcarAgent("rsi-sorcar-scope")
         self.agent.task_description = task
         self.agent.work_dir = work_dir
         self.agent._ask_user_question_callback = ask
         self.state = agent_state.AgentState(
-            "rsi7d-scope-task", agent=self.agent, tab_id="scope_tab",
+            "rsi-scope-task", agent=self.agent, tab_id="scope_tab",
             task_thread=threading.current_thread(),
         )
 
@@ -136,7 +136,7 @@ def test_plain_top_level_runs_are_mined_as_the_sorcar_pseudo_sea(checkout: Path)
     runs_before = entry["stats"]["runs"] if entry else 0
     plain = _persist("Refactor the parser", startTs=int(time.time() * 1000) + 3_600_000)
     # A SEA name no other test records: the shared DB would otherwise show
-    # this row as a "(recorded sea)" run of ``demo`` in test_rsi7d_sea.py.
+    # this row as a "(recorded sea)" run of ``demo`` in test_rsi_sea.py.
     sea_run = _persist("Review this paper", sea="scopedemo_sea")
     child = _persist("Reviewer sub-task", parent_task_id=plain)
     runs = json.loads(sea.sea_runs(name=sea.SORCAR))["seas"][sea.SORCAR]
@@ -299,7 +299,7 @@ def test_permission_is_asked_from_the_user_and_read_strictly(checkout: Path) -> 
             "SYSTEM.md", "bullets X and Y (task abc, entry 4)"
         ) == "Permission granted for SYSTEM.md by the user's answer 'Yes, go ahead.'."
         assert questions[-1] == (
-            "rsi7d asks permission to change KISS Sorcar itself.\nFiles: SYSTEM.md\n"
+            "rsi asks permission to change KISS Sorcar itself.\nFiles: SYSTEM.md\n"
             "Change and evidence: bullets X and Y (task abc, entry 4)\n"
             "Answer yes to allow exactly these changes; anything else (no, or what you allow "
             "instead) denies them."
@@ -327,7 +327,7 @@ def test_permission_is_asked_from_the_user_and_read_strictly(checkout: Path) -> 
         "Be brief.\n"
     )
     # An unattended (cron) sweep never asks: the callback is not even called.
-    with _Registered(cron_agent.PROMPT_PREAMBLE + "Run /rsi7d all", ask=ask):
+    with _Registered(cron_agent.PROMPT_PREAMBLE + "Run /rsi all", ask=ask):
         assert sea.request_sorcar_permission("SYSTEM_LITE.md", "z") == (
             "Denied: this sweep runs unattended (scheduled automation) and nobody can grant "
             "permission. Do not ask again; report the change as a recommendation."
@@ -365,7 +365,7 @@ def test_patch_sorcar_edits_granted_prompt_code_and_agents_md_targets(checkout: 
         assert sea.patch_sorcar("SYSTEM.md", "gone", "x") == (
             f"Error: `old` occurs 0 times in {system_md}; it must occur exactly once"
         )
-        section = "## Lessons from recent runs (rsi7d)\n- Cite the task id."
+        section = "## Lessons from recent runs (rsi)\n- Cite the task id."
         assert sea.patch_sorcar("SYSTEM.md", "", section + "\n\n").startswith("Patched ")
         assert system_md.read_text(encoding="utf-8") == (
             "{{IDENTITY}}\n\n## Rules\n- Read first.\n- Batch independent commands.\n\n"
@@ -391,7 +391,7 @@ def test_patch_sorcar_edits_granted_prompt_code_and_agents_md_targets(checkout: 
         assert sea.patch_sorcar("AGENTS.md", "", "") == (
             "Error: give `old` (the bullet to remove), `new` (the bullet to add) or both"
         )
-        backup = checkout / "tmp" / "rsi7d" / "AGENTS.md.before"
+        backup = checkout / "tmp" / "rsi" / "AGENTS.md.before"
         md = agents_md.agents_md_path()
         assert sea.patch_sorcar("AGENTS.md", "", "Always answer in French") == (
             f"Remembered in {md}: Always answer in French"
@@ -431,7 +431,7 @@ def test_agent_run_asks_the_user_through_the_tool_and_patches_only_what_was_gran
         ),
         tool_call_body(
             "patch_sorcar",
-            {"target": "SYSTEM.md", "old": "", "new": "## Lessons from recent runs (rsi7d)\n- X."},
+            {"target": "SYSTEM.md", "old": "", "new": "## Lessons from recent runs (rsi)\n- X."},
             prompt_tokens=600,
         ),
         tool_call_body(
@@ -442,9 +442,9 @@ def test_agent_run_asks_the_user_through_the_tool_and_patches_only_what_was_gran
     ]
     run = sea_commands.evaluate_sea([sea_commands.load_sea(_SEA_PATH)], "all")
     with serve(script) as (url, requests):
-        agent = WorktreeSorcarAgent("rsi7d-sorcar-scope-run")
+        agent = WorktreeSorcarAgent("rsi-sorcar-scope-run")
         state = agent_state.AgentState(
-            "rsi7d-scope-run", agent=agent, tab_id="scope_run_tab",
+            "rsi-scope-run", agent=agent, tab_id="scope_run_tab",
             task_thread=threading.current_thread(),
         )
         agent_state.register(state)
@@ -471,7 +471,7 @@ def test_agent_run_asks_the_user_through_the_tool_and_patches_only_what_was_gran
     parsed = yaml.safe_load(result)
     assert parsed["success"] is True
     assert questions == [
-        "rsi7d asks permission to change KISS Sorcar itself.\nFiles: SYSTEM.md\n"
+        "rsi asks permission to change KISS Sorcar itself.\nFiles: SYSTEM.md\n"
         "Change and evidence: Runs abc and def re-read files (entries 3, 9).\n"
         "Answer yes to allow exactly these changes; anything else (no, or what you allow "
         "instead) denies them."
@@ -489,6 +489,6 @@ def test_agent_run_asks_the_user_through_the_tool_and_patches_only_what_was_gran
         "Error: no permission to change AGENTS.md; call request_sorcar_permission first"
     )
     assert (checkout / "src" / "kiss" / "SYSTEM.md").read_text(encoding="utf-8").endswith(
-        "## Lessons from recent runs (rsi7d)\n- X.\n"
+        "## Lessons from recent runs (rsi)\n- X.\n"
     )
     assert not agents_md.agents_md_path().exists()

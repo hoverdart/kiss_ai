@@ -52,7 +52,7 @@ ROW_A = "| 2026-09-27 10:00 | t1 | grep | small | m-small | tier small 0.9 | pen
 ROW_B = "| 2026-09-27 10:02 | t2 | fix bug | medium | m-med | tier medium 0.7 | pending |\n"
 ROW_C = "| 2026-09-27 10:05 | t1 | grep | small | m-small | tier small 0.9 | passed |\n"
 
-EVIDENCE = """_Observed in the task history, refreshed 2026-09-27 by /rsi7d._
+EVIDENCE = """_Observed in the task history, refreshed 2026-09-27 by /rsi._
 
 Window: 2026-09-20 to 2026-09-27 UTC, 2,684 tasks.
 
@@ -163,7 +163,7 @@ def test_same_day_evidence_is_combined_row_by_row_and_bullet_by_bullet() -> None
 def test_same_day_evidence_conflicts_resolve_the_same_way_on_both_machines() -> None:
     """Equal counts, or different headers: the base (more rows, then the greater text) wins
     outright, so ``merge(a, b) == merge(b, a)`` and a sync converges."""
-    stamp = "_Observed in the task history, refreshed 2026-09-27 by /rsi7d._\n"
+    stamp = "_Observed in the task history, refreshed 2026-09-27 by /rsi._\n"
     a = stamp + "\n| model | tasks | fail |\n|---|---|---|\n| a | 10 | 1 |\n"
     b = stamp + "\n| model | tasks | fail |\n|---|---|---|\n| a | 10 | 9 |\n"
     assert notes.merge_evidence(a, b) == notes.merge_evidence(b, a) == b
@@ -186,7 +186,7 @@ def test_same_day_evidence_conflicts_resolve_the_same_way_on_both_machines() -> 
 def test_same_day_evidence_without_a_table_or_bullets_borrows_them() -> None:
     """The base lacking bullets gets the other's appended; the base is the copy with more
     rows, then more bullets; count-less rows stay last."""
-    stamp = "_Observed in the task history, refreshed 2026-09-27 by /rsi7d._\n"
+    stamp = "_Observed in the task history, refreshed 2026-09-27 by /rsi._\n"
     ours = stamp + "\nNothing measured.\n"
     theirs = (
         stamp + "\n| model | tasks |\n|---|---|\n| a | 5 |\n| b | n/a |\n| c | 9 |\n\n- a: fine.\n"

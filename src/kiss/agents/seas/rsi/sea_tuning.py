@@ -2,10 +2,10 @@
 # Contributors:
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
-"""Deterministic ``settings()`` tuning and eval-set mining for ``rsi7d``.
+"""Deterministic ``settings()`` tuning and eval-set mining for ``rsi``.
 
-Pure functions over the run records :mod:`rsi7d_sea` mines from the task
-history, so the ``rsi7d`` tools stay thin and this module is testable
+Pure functions over the run records :mod:`rsi_sea` mines from the task
+history, so the ``rsi`` tools stay thin and this module is testable
 without a database:
 
 * :func:`propose_settings` turns a SEA's runs of the window into
@@ -233,7 +233,7 @@ def narrower_profile(
 
 def change_log_path(home: Path) -> Path:
     """Return the settings change log of the Sorcar home *home*."""
-    return home / "rsi7d" / "settings_changes.jsonl"
+    return home / "rsi" / "settings_changes.jsonl"
 
 
 def load_changes(log: Path, sea: str) -> list[dict[str, Any]]:

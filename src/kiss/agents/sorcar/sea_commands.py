@@ -771,7 +771,7 @@ def base_settings(seas: list[BaseSea]) -> dict[str, Any]:
 def sea_settings(sea_path: Path) -> dict[str, Any]:
     """Return the effective settings of the SEA at *sea_path* (:func:`base_settings`).
 
-    For a caller that holds only the path (a SEA such as ``rsi7d``
+    For a caller that holds only the path (a SEA such as ``rsi``
     reading another SEA's settings); the daemon's own run path loads the
     layers once (``sea_apply.load_layers``) and evaluates them with
     :func:`evaluate_sea`.
@@ -985,7 +985,7 @@ def run_picked_hook(
     """Run the picked SEA's ``on_picked_as_model(work_dir)`` hook on a thread.
 
     The hook is a model-picker SEA's chance to act on being chosen as a
-    tab's model — ``autorouter`` makes sure its weekly ``/rsi7d autorouter``
+    tab's model — ``autorouter`` makes sure its weekly ``/rsi autorouter``
     cron job is scheduled.  The daemon calls it when the user picks the SEA
     (``selectModel``) and once per run whose model is the SEA.  Hooks
     from concurrent picks may overlap: a hook that must not race gets

@@ -16,7 +16,7 @@ S5  ``dummy``, ``coding`` and ``oai`` are hidden; a channel is a
 S6  one name, "SEA", and whole argument descriptions in the tool schema.
 S8  ``tool_profile`` is also an option; ``workspace`` is refused for a
     non-channel.
-S9  is covered by ``tests/agents/seas/test_rsi7d_sea_tuning.py``.
+S9  is covered by ``tests/agents/seas/test_rsi_sea_tuning.py``.
 """
 
 from __future__ import annotations

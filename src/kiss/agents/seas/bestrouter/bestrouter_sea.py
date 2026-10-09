@@ -47,7 +47,7 @@ Use the model names literally without hallucinating new model names.
 """ """\
 
 
-## Lessons from recent runs (rsi7d)
+## Lessons from recent runs (rsi)
 
 - `Read` the region of a file before its first `Edit`, and `Read` an existing file before
   a `Write` that replaces it (an unread file is refused either way); after an `Edit` is

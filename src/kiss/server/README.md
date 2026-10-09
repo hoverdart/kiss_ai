@@ -793,8 +793,8 @@ a hook that raises is logged as a warning, and one that blocks is
 abandoned on its thread; none of them fails the run.  It does not run
 for a `/xxx` command's agent or an explicit `seaPath`, only for the
 SEA the model pick names.  `autorouter` uses it to make sure an
-enabled weekly cron job that runs `/rsi7d autorouter` exists
-(`autorouter_sea.schedule_weekly_rsi7d`: an enabled job of that name is
+enabled weekly cron job that runs `/rsi autorouter` exists
+(`autorouter_sea.schedule_weekly_rsi`: an enabled job of that name is
 kept as is, a paused one is resumed, and when there is none one is
 created — a prompt job in the KISS checkout the work directory
 is in, with worktree and auto-commit, or a scratch-directory job that
@@ -1654,7 +1654,7 @@ class TaskResult:
   `kiss.server.agent_state.current_agent()` to get the running agent
   (its `work_dir`, model and usage counters); it returns `None` on any
   other thread.  The bundled `seas/autorouter/autorouter_sea.py`,
-  `seas/rsi7d/rsi7d_sea.py` and `seas/skillopt/skillopt_sea.py` use it.
+  `seas/rsi/rsi_sea.py` and `seas/skillopt/skillopt_sea.py` use it.
 - Put the SEA in a folder named after the command, `xxx/xxx_sea.py`,
   and list that folder's parent in `$KISS_HOME/SEAS.md` (one folder per
   line; blank lines and `#` comments are ignored) to expose it as the
@@ -1694,10 +1694,10 @@ class TaskResult:
   a venue, scoring seven dimensions from 1 to 10), `/revise_and_review_paper` (writes a paper with
   `/write_paper`, has `/review_paper` review it fresh, and repeats until
   strong accept or no further improvement; task text carries `Writing:`
-  and `Review:` instructions), `/rsi7d` (7-day self-improvement of the
+  and `Review:` instructions), `/rsi` (7-day self-improvement of the
   indexed SEAs from their recorded runs; the task text starts with the
-  scope: `/rsi7d all`, `/rsi7d <name> [<name> ...]` for those SEAs only,
-  or `/rsi7d --seas-dir <folder> [<name> ...]` for the SEAs of that
+  scope: `/rsi all`, `/rsi <name> [<name> ...]` for those SEAs only,
+  or `/rsi --seas-dir <folder> [<name> ...]` for the SEAs of that
   folder, which then are the ones it may edit), `/sh`
   (runs the command with the `bash` tool profile), `/skillopt`
   (optimizes the prompt text of a skill or SEA against an eval set),
@@ -1712,7 +1712,7 @@ class TaskResult:
   is empty or a generic label).  The other modules in that package
   (`coding/coding_test_context.py`,
   `git_extract_knowledge/git_knowledge_index.py`,
-  `git_extract_knowledge/git_knowledge_store.py`, `rsi7d/sea_tuning.py`,
+  `git_extract_knowledge/git_knowledge_store.py`, `rsi/sea_tuning.py`,
   the shared `agents_md.py`) are helpers, not commands: only
   `<name>/<name>_sea.py` folders are registered.  Syntax,
   precedence and the dispatch flow are

@@ -2,7 +2,7 @@
 # Contributors:
 # Koushik Sen (ksen@berkeley.edu)
 # add your name here
-"""``rsi7d``'s code, settings and eval-set tools (``sea_tuning`` and the gated editors).
+"""``rsi``'s code, settings and eval-set tools (``sea_tuning`` and the gated editors).
 
 The pure functions are checked on literal data; the tools run against a
 fake checkout (the ``checkout`` fixture below) and the session's
@@ -23,8 +23,8 @@ from typing import Any
 
 import pytest
 
-from kiss.agents.seas.rsi7d import rsi7d_sea as sea
-from kiss.agents.seas.rsi7d import sea_tuning
+from kiss.agents.seas.rsi import rsi_sea as sea
+from kiss.agents.seas.rsi import sea_tuning
 from kiss.agents.sorcar import sea_commands
 from kiss.agents.sorcar.persistence import (
     _add_task,
@@ -488,7 +488,7 @@ def test_tune_patch_settings_and_export_evals_use_the_persisted_runs(checkout: P
     # Settled without a replay: reverted, and the added key is removed again.
     assert sea.settle_sea_settings("tunedemo") == (
         "Reverted settings()['max_budget'] of tunedemo to None (no replay given); record why "
-        "in ./tmp/rsi7d/explored-ideas.md"
+        "in ./tmp/rsi/explored-ideas.md"
     )
     assert "max_budget" not in sea_commands.sea_settings(path)
     assert sea.patch_sea_settings("tunedemo", "max_budget", "3.0").startswith("Patched")
@@ -619,7 +619,7 @@ def test_change_log_pending_and_compare() -> None:
 def test_change_log_round_trip(tmp_path: Path) -> None:
     """``record_change`` / ``load_changes`` / ``settle_change`` on a JSONL file."""
     log = sea_tuning.change_log_path(tmp_path)
-    assert log == tmp_path / "rsi7d" / "settings_changes.jsonl"
+    assert log == tmp_path / "rsi" / "settings_changes.jsonl"
     assert sea_tuning.load_changes(log, "x") == []
     assert sea_tuning.settle_change(log, "x", "r1") is None
     first = sea_tuning.record_change(
@@ -862,7 +862,7 @@ def test_revert_removes_a_key_that_was_absent_even_when_the_base_gave_it_a_value
     assert sea_commands.sea_settings(path)["use_web_tools"] is True
     assert sea.settle_sea_settings("tunedemo") == (
         "Reverted settings()['use_web_tools'] of tunedemo to None (no replay given); record "
-        "why in ./tmp/rsi7d/explored-ideas.md"
+        "why in ./tmp/rsi/explored-ideas.md"
     )
     assert path.read_text(encoding="utf-8") == DEMO_SEA
     assert sea_tuning.pending_change(sea_tuning.load_changes(sea._change_log(), "tunedemo")) is None
@@ -952,7 +952,7 @@ class Sea(BaseSea):
 
 
 def test_own_task_id_reads_the_persisted_id() -> None:
-    """The change log names the rsi7d task by the id ``ChatSorcarAgent`` persists
+    """The change log names the rsi task by the id ``ChatSorcarAgent`` persists
     (``last_task_id``), found through ``current_agent`` on the task thread."""
     import threading
 
@@ -960,15 +960,15 @@ def test_own_task_id_reads_the_persisted_id() -> None:
     from kiss.server import agent_state
 
     assert sea._own_task_id() == ""
-    agent = WorktreeSorcarAgent("rsi7d-tuning-test")
-    agent._last_task_id = "persisted-rsi7d-task"
+    agent = WorktreeSorcarAgent("rsi-tuning-test")
+    agent._last_task_id = "persisted-rsi-task"
     state = agent_state.AgentState(
-        "rsi7d-tuning-test", agent=agent, task_thread=threading.current_thread(),
+        "rsi-tuning-test", agent=agent, task_thread=threading.current_thread(),
         is_task_active=True,
     )
     agent_state.register(state)
     try:
-        assert agent.last_task_id == "persisted-rsi7d-task"
-        assert sea._own_task_id() == "persisted-rsi7d-task"
+        assert agent.last_task_id == "persisted-rsi-task"
+        assert sea._own_task_id() == "persisted-rsi-task"
     finally:
         agent_state.unregister(state.task_id, state)

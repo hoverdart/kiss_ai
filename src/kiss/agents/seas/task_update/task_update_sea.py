@@ -59,7 +59,7 @@ say so and report its final result.
 """ """\
 
 
-## Lessons from recent runs (rsi7d)
+## Lessons from recent runs (rsi)
 
 - `task_transcript` is your tool even though the tool profile lists only Bash. Never use
   Bash here: do not query the task database, tail log files, run status scripts, `cd` into
