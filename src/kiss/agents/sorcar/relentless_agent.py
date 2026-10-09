@@ -469,6 +469,36 @@ Read relevant portions of the file using your tools:
 - Call finish(result="detailed summary of work done so far, in HTML").
 """
 
+
+class SummarizerFinish:
+    """The failed-session summarizer's ``finish`` tool.
+
+    The summarizer's result IS the failed session's continuation result,
+    and its terminal ``result`` printer event is the one the chat
+    webview shows for it.  The built-in plain-text ``finish(result)``
+    would emit that event with the HTML summary as bare ``text`` (no
+    ``summary`` / ``is_continue`` keys), which the webview renders
+    escaped, tags and all.  This ``finish`` keeps the summarizer's simple
+    ``result`` signature but returns the structured continuation
+    contract (``success=False, is_continue=True``, HTML summary), so the
+    event renders like every other "Status: Continue" result panel.
+    """
+
+    @staticmethod
+    def finish(result: str) -> str:
+        """Finish the summary with the work done so far.
+
+        Args:
+            result: A precise chronologically-ordered account of the work
+                done so far, formatted as HTML (never Markdown).
+
+        Returns:
+            The structured continuation result (YAML with ``success``,
+            ``is_continue`` and ``summary`` keys).
+        """
+        return finish(False, True, result)
+
+
 MAX_PROGRESS_CHARS = 60_000
 
 
@@ -1641,7 +1671,12 @@ class RelentlessAgent(Base):
                 summarizer_result = summarizer_agent.run(
                     model_name=self.model_name,
                     prompt_template=SUMMARIZER_PROMPT,
-                    tools=[shell_tools.Read, shell_tools.Bash, shell_tools.bash_job],
+                    tools=[
+                        shell_tools.Read,
+                        shell_tools.Bash,
+                        shell_tools.bash_job,
+                        SummarizerFinish.finish,
+                    ],
                     arguments={
                         "trajectory_path": str(trajectory_path),
                     },
@@ -1657,7 +1692,7 @@ class RelentlessAgent(Base):
             try:
                 parsed = yaml.safe_load(summarizer_result)
                 summary_text = (
-                    parsed.get("result", summarizer_result)
+                    parsed.get("summary", summarizer_result)
                     if isinstance(parsed, dict)
                     else summarizer_result
                 )

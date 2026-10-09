@@ -62,6 +62,12 @@
 
 #### `kiss.agents.sorcar.relentless_agent` — *Base relentless agent with smart continuation for long tasks.*
 
+##### `class SummarizerFinish` — The failed-session summarizer's ``finish`` tool.
+
+- **finish** — Finish the summary with the work done so far.<br/>`finish(result: str) -> str`
+  - `result`: A precise chronologically-ordered account of the work done so far, formatted as HTML (never Markdown).
+  - **Returns:** The structured continuation result (YAML with ``success``, ``is_continue`` and ``summary`` keys).
+
 ##### `class RelentlessAgent(Base)` — Base agent with auto-continuation for long tasks.
 
 **Constructor:** `RelentlessAgent(name: str) -> None`
