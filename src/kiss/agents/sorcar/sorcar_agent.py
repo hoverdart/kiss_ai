@@ -1319,7 +1319,11 @@ class SorcarAgent(RelentlessAgent):
                 )
             except Exception:
                 synthesized = None
-            _attribute_tts_usage(self, tts_usage)
+            finally:
+                # Also on a Stop (KeyboardInterrupt) that unwinds through
+                # here: the synthesis already banked its spend in
+                # ``tts_usage`` and the task must still pay for it.
+                _attribute_tts_usage(self, tts_usage)
             if synthesized:
                 payload["audioB64"], payload["audioMime"] = synthesized
             broadcast(payload)
