@@ -5,7 +5,7 @@
 # add your name here
 """Run a SEA in this process: no kiss-web daemon, no UI.
 
-    uv run python scripts/run_sea_standalone.py <sea> "<task>" [--work-dir DIR] [-m MODEL] [-b USD]
+    uv run python scripts/run_sea.py <sea> "<task>" [--work-dir DIR] [-m MODEL] [-b USD]
 
 ``<sea>`` is a SEA name (``sh``, ``weather``: resolved through the same
 registry the daemon uses, i.e. the bundled ``seas/`` folder, the folders
@@ -86,6 +86,8 @@ def main() -> int:
     try:
         return 0 if yaml.safe_load(result).get("success") else 1
     except Exception:
+        # A ``finish`` called with wrong arguments ends the run with the
+        # tool error text, not a YAML mapping.
         return 1
 
 
