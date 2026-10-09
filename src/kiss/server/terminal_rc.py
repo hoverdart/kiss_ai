@@ -69,18 +69,39 @@ fi
 # Append to $HISTFILE at exit instead of overwriting it (the other
 # tabs' commands are in there too), and after every command.
 shopt -s histappend
+# bash before 4.0 (macOS's /bin/bash 3.2) appends nothing with
+# `history -a` in a shell whose history list started out empty (no
+# history file yet, so nothing was read at start-up): such a shell
+# appends each newest entry itself.  `fc` cannot list the newest
+# entry from PROMPT_COMMAND and $HISTCMD is 1 there, so the entry
+# comes from `history 1` (its number and text, no time stamp).
+__kiss_terminal_append() {
+  local entry
+  entry=$(HISTTIMEFORMAT= history 1)
+  if [ -n "$entry" ] && [ "$entry" != "${__kiss_terminal_entry:-}" ]; then
+    __kiss_terminal_entry=$entry
+    printf '%s\n' "${entry#*[0-9][ *] }" >> "$HISTFILE"
+  fi
+}
+if (( BASH_VERSINFO[0] < 4 )) && [ -n "${HISTFILE:-}" ] && [ ! -s "$HISTFILE" ]; then
+  __kiss_terminal_hook='__kiss_terminal_append'
+else
+  unset -f __kiss_terminal_append
+  __kiss_terminal_hook='history -a'
+fi
 # bash 5.1 and later run every element of a PROMPT_COMMAND array;
 # earlier versions run only ${PROMPT_COMMAND[0]}, which is what the
 # scalar branch appends to.
 if (( BASH_VERSINFO[0] > 5 || (BASH_VERSINFO[0] == 5 && BASH_VERSINFO[1] >= 1) )) \
   && case "$(declare -p PROMPT_COMMAND 2>/dev/null)" in "declare -a"*) true ;; *) false ;; esac
 then
-  PROMPT_COMMAND+=('history -a')
+  PROMPT_COMMAND+=("$__kiss_terminal_hook")
 elif [ -n "${PROMPT_COMMAND:-}" ]; then
-  PROMPT_COMMAND="$PROMPT_COMMAND"$'\n''history -a'
+  PROMPT_COMMAND="$PROMPT_COMMAND"$'\n'"$__kiss_terminal_hook"
 else
-  PROMPT_COMMAND='history -a'
+  PROMPT_COMMAND="$__kiss_terminal_hook"
 fi
+unset __kiss_terminal_hook
 """
 
 # The user's dotfiles are sourced at the top level of each shim, never

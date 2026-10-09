@@ -203,12 +203,14 @@ def _diag_line(shell: str) -> str:
         funcs = "gone"
         login = "$(shopt -q login_shell && echo y || echo n)"
     # ``exported`` counts ZDOTDIR in the environment: 1 when exported.
+    # The line ends with ``diag-42``, which the echo of the command
+    # itself does not contain: waiting for it waits for the output.
     return (
         "printf 'DIAG login=%s zdotdir=<%s> exported=%s kissvars=%s histfile=<%s> "
-        "funcs=%s\\n' "
+        "funcs=%s diag-%s\\n' "
         f'"{login}" "${{ZDOTDIR:-}}" "$(env | grep -c "^ZDOTDIR=")" '
         '"$(env | grep -c "^KISS_\\(TERMINAL\\|USER_ZDOTDIR\\)")" '
-        f'"${{HISTFILE:-}}" "{funcs}"'
+        f'"${{HISTFILE:-}}" "{funcs}" "$((40+2))"'
     )
 
 
@@ -240,6 +242,7 @@ def test_bash_tab_recalls_the_commands_of_a_tab_still_running(
 ) -> None:
     bash = _bash()
     monkeypatch.setenv("SHELL", bash)
+    monkeypatch.setattr(terminal_tab, "default_shell", lambda: [bash])
     # The user's rc file is read first, and its PROMPT_COMMAND keeps
     # running before every prompt.
     (home / ".bashrc").write_text(
@@ -253,14 +256,47 @@ def test_bash_tab_recalls_the_commands_of_a_tab_still_running(
         assert "size=200" in out
         assert out.count("prompt-hook") >= 4
         out = tabs.run("B", 'declare -p PROMPT_COMMAND; shopt histappend', "histappend")
-        assert "declare -- PROMPT_COMMAND=$'echo prompt-hook\\nhistory -a'" in out
+        # bash 4.4 and later print the newline as an escape, older ones as is.
+        assert re.search(
+            r"declare -- PROMPT_COMMAND=(\$'echo prompt-hook\\nhistory -a'"
+            r'|"echo prompt-hook\nhistory -a")',
+            out,
+        )
         assert re.search(r"histappend\s+on", out)
-        out = tabs.run("B", _diag_line("bash"), "DIAG login")
+        out = tabs.run("B", _diag_line("bash"), "diag-42")
         assert re.search(
             r"DIAG login=n zdotdir=<> exported=0 kissvars=0 "
             r"histfile=<[^>]*/\.bash_history> funcs=gone",
             out,
         )
+    finally:
+        tabs.close()
+
+
+def test_bash_tabs_opened_together_on_an_empty_history_keep_each_others_commands(
+    home: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two tabs that both started before any command was entered (no
+    history file yet) write every command once, in the order entered,
+    and a third tab recalls them all.  bash before 4.0 takes another
+    path for such tabs, which must not rewrite the file."""
+    bash = _bash()
+    monkeypatch.setenv("SHELL", bash)
+    monkeypatch.setattr(terminal_tab, "default_shell", lambda: [bash])
+    tabs = Tabs(home)
+    try:
+        tabs.open("A")
+        tabs.open("B")
+        tabs.run("A", "echo a-$((1+0))", "a-1")
+        tabs.run("B", "echo b-$((1+0))", "b-1")
+        tabs.run("A", "echo a-$((2+0))", "a-2")
+        tabs.run("B", "echo b-$((2+0))", "b-2")
+        assert (home / ".bash_history").read_text(encoding="utf-8") == (
+            "echo a-$((1+0))\necho b-$((1+0))\necho a-$((2+0))\necho b-$((2+0))\n"
+        )
+        tabs.open("C")
+        out = tabs.run("C", _UP + _UP + _UP + _UP, "a-1")
+        assert out.count("a-1") == 1
     finally:
         tabs.close()
 
@@ -276,6 +312,7 @@ def test_bash_array_prompt_command_gets_the_hook_appended(
     if tuple(int(n) for n in version.split(".")) < (5, 1):
         pytest.skip(f"bash {version} runs only the first element of a PROMPT_COMMAND array")
     monkeypatch.setenv("SHELL", bash)
+    monkeypatch.setattr(terminal_tab, "default_shell", lambda: [bash])
     (home / ".bashrc").write_text(
         "PROMPT_COMMAND=('echo hook-one' 'echo hook-two')\n", encoding="utf-8",
     )
@@ -322,18 +359,22 @@ def test_zsh_tab_recalls_the_commands_of_a_tab_still_running(
     zsh = shutil.which("zsh")
     assert zsh
     monkeypatch.setenv("SHELL", zsh)
-    (home / ".zshenv").write_text("ENV_MARK=user-zshenv\n", encoding="utf-8")
+    monkeypatch.setattr(terminal_tab, "default_shell", lambda: [zsh])
+    # Without the system files (macOS's /etc/zshrc configures history)
+    # no file configures a history file: the usual one, written at once.
+    (home / ".zshenv").write_text(
+        "ENV_MARK=user-zshenv\nunsetopt globalrcs\n", encoding="utf-8",
+    )
     (home / ".zshrc").write_text("RC_MARK=user-zshrc\n", encoding="utf-8")
     tabs = Tabs(home)
     try:
-        # No history file configured: the usual one, written at once.
         _recall_across_tabs(tabs, home / ".zsh_history")
         out = tabs.run(
             "B", 'echo "e=$ENV_MARK r=$RC_MARK save=$SAVEHIST size=$HISTSIZE"',
             "e=user-zshenv",
         )
         assert "e=user-zshenv r=user-zshrc save=10000 size=10000" in out
-        out = tabs.run("B", _diag_line("zsh"), "DIAG login")
+        out = tabs.run("B", _diag_line("zsh"), "diag-42")
         assert re.search(
             r"DIAG login=n zdotdir=<> exported=0 kissvars=0 "
             r"histfile=<[^>]*/\.zsh_history> funcs=gone",
@@ -370,7 +411,7 @@ def test_zsh_login_shell_with_its_own_zdotdir_and_history_file(
         _recall_across_tabs(tabs, cfg / "own_history")
         out = tabs.run("B", 'echo "order=$ORDER save=$SAVEHIST size=$HISTSIZE"', "order=")
         assert "order= env profile rc login save=300 size=400" in out
-        out = tabs.run("B", _diag_line("zsh"), "DIAG login")
+        out = tabs.run("B", _diag_line("zsh"), "diag-42")
         assert re.search(
             rf"DIAG login=y zdotdir=<{re.escape(str(cfg))}> exported=1 kissvars=0 "
             rf"histfile=<{re.escape(str(cfg))}/own_history> funcs=gone",
@@ -392,6 +433,7 @@ def test_zsh_dotfiles_keep_their_scope_and_an_unexported_zdotdir(
     zsh = shutil.which("zsh")
     assert zsh
     monkeypatch.setenv("SHELL", zsh)
+    monkeypatch.setattr(terminal_tab, "default_shell", lambda: [zsh])
     cfg = home / "cfg"
     cfg.mkdir()
     (home / "bin").mkdir()
@@ -409,7 +451,7 @@ def test_zsh_dotfiles_keep_their_scope_and_an_unexported_zdotdir(
         _recall_across_tabs(tabs, cfg / ".zsh_history")
         out = tabs.run("B", 'echo "r=$RC_MARK p=${path[1]}"', "r=")
         assert f"r=cfg-zshrc p={home}/bin" in out
-        out = tabs.run("B", _diag_line("zsh"), "DIAG login")
+        out = tabs.run("B", _diag_line("zsh"), "diag-42")
         assert re.search(
             rf"DIAG login=n zdotdir=<{re.escape(str(cfg))}> exported=0 kissvars=0 "
             rf"histfile=<{re.escape(str(cfg))}/\.zsh_history> funcs=gone",
@@ -446,7 +488,7 @@ def test_zsh_login_shell_whose_zshrc_turns_rcs_off_is_still_cleaned_up(
         assert "echo first-$((20+2))" in (cfg / ".zsh_history").read_text(encoding="utf-8")
         out = tabs.run("A", 'echo "r=$RC_MARK l=${LOGIN_MARK:-none}"', "r=")
         assert "r=cfg-zshrc l=none" in out
-        out = tabs.run("A", _diag_line("zsh"), "DIAG login")
+        out = tabs.run("A", _diag_line("zsh"), "diag-42")
         assert re.search(
             rf"DIAG login=y zdotdir=<{re.escape(str(cfg))}> exported=0 kissvars=0 "
             rf"histfile=<{re.escape(str(cfg))}/\.zsh_history> funcs=gone",

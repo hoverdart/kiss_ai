@@ -198,8 +198,10 @@ def _open_scm(page):
 def _toast(page, toast_id: str):
     """Locator of the in-webview confirm / prompt toast *toast_id* that
     main.js shows in place of the browser's confirm() / prompt() (the
-    VS Code webview sandbox never displays those)."""
-    return page.locator(f".kiss-notification[data-notification-id='{toast_id}']")
+    VS Code webview sandbox never displays those).  A native Windows
+    path in the id has its backslashes escaped for the CSS string."""
+    escaped = toast_id.replace("\\", "\\\\")
+    return page.locator(f".kiss-notification[data-notification-id='{escaped}']")
 
 
 def _answer_prompt(page, toast_id: str, text: str | None) -> None:
@@ -511,9 +513,9 @@ def test_copy_paste_cut_and_conflict_prompt(browser, harness, worktree):
         _explorer_row(page, "dir").click(button="right")
         _menu_item(page, "Paste").click()
         # One question per clashing entry (a multi-entry paste asks once
-        # per clash): the toast id carries the destination folder and
-        # the entry's name.
-        overwrite_id = f"fs-overwrite:{harness.work_dir}/dir|main-only.txt"
+        # per clash): the toast id carries the destination folder (a
+        # native path, as the daemon lists it) and the entry's name.
+        overwrite_id = f"fs-overwrite:{harness.work_dir / 'dir'}|main-only.txt"
         message = _answer_confirm(page, overwrite_id, accept=False)
         assert "already exists" in message
         page.wait_for_timeout(300)
@@ -1424,6 +1426,17 @@ def _wait_pdf_status(page, text: str) -> None:
     )
 
 
+def _wait_pdf_at_first_page(page) -> None:
+    """Scroll the viewer to its top and wait for the indicator to say so.
+
+    Widening the pane rescales the pages while keeping the point under
+    the middle of the view in place, so on a slow host the viewer may
+    be showing page 2 once the first page has rendered.
+    """
+    page.evaluate("document.querySelector('.content-tab-view .pdf-scroller').scrollTop = 0")
+    _wait_pdf_status(page, "Page 1 of 8")
+
+
 _PDFJS_MODULE = (
     "https://cdn.jsdelivr.net/npm/pdfjs-dist@6.3.289/legacy/build/pdf.min.mjs"
 )
@@ -1854,7 +1867,7 @@ def test_pdf_zoom_keeps_the_point_under_the_gesture(browser, harness, worktree):
         _widen_content_pane(page)
         _wait_pdf_rendered(page)
         assert page.locator(_PDF_PAGE).count() == 8
-        assert _pdf_status(page) == "Page 1 of 8"
+        _wait_pdf_at_first_page(page)
         # Scrolling to the end puts the last page under the middle.
         page.evaluate(
             "document.querySelector('.content-tab-view .pdf-scroller').scrollTop = 1e6"
@@ -1965,7 +1978,7 @@ def test_pdf_page_field_jumps_to_the_typed_page(browser, harness, worktree):
         _widen_content_pane(page)
         _wait_pdf_rendered(page)
         field = page.locator(_PDF_VIEWER + " .pdf-page-input")
-        assert _pdf_status(page) == "Page 1 of 8"
+        _wait_pdf_at_first_page(page)
         assert field.get_attribute("inputmode") == "numeric"
         assert field.get_attribute("enterkeyhint") == "go"
         # Focusing the field selects the number, so typing replaces it.
@@ -2085,7 +2098,7 @@ def test_pdf_keyboard_shortcuts_move_pages_and_zoom(browser, harness, worktree):
         page.locator(_PDF_VIEWER).wait_for(timeout=15000)
         _widen_content_pane(page)
         _wait_pdf_rendered(page)
-        assert _pdf_status(page) == "Page 1 of 8"
+        _wait_pdf_at_first_page(page)
         # No click into the viewer first: the keys work as soon as the
         # viewer is shown.
         page.evaluate("document.activeElement.blur()")
