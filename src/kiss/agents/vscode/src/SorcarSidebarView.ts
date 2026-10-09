@@ -457,6 +457,10 @@ export class SorcarSidebarView implements vscode.WebviewViewProvider {
   // kept so a webview that resolves (or reloads) after the relay can
   // be brought up to date on its `ready`.
   private _lastMetaState?: Extract<ToWebviewMessage, {type: 'metaState'}>;
+  // Task Info view only (meta-panel-mode): a run start (showForRun)
+  // relayed before the webview loaded — the view is revealed for the
+  // start and resolves after the relay — waits for its `ready`.
+  private _showForRunPending = false;
   // History panel only (history-panel-mode): the last relayed
   // activeTask, replayed on `ready` for the same reason.
   private _lastActiveTask?: Extract<ToWebviewMessage, {type: 'activeTask'}>;
@@ -1371,6 +1375,10 @@ export class SorcarSidebarView implements vscode.WebviewViewProvider {
         // before the webview loaded — or lost to a webview reload —
         // must not leave the panel on its placeholder dashes.
         if (this._lastMetaState) this._sendToWebview(this._lastMetaState);
+        if (this._showForRunPending) {
+          this._showForRunPending = false;
+          this._sendToWebview({type: 'showForRun'});
+        }
         if (this._lastActiveTask) this._sendToWebview(this._lastActiveTask);
         // The daemon owns the canonical tab registry, so `ready` is
         // forwarded whole: the daemon fans out the connId-scoped init
@@ -2231,6 +2239,18 @@ export class SorcarSidebarView implements vscode.WebviewViewProvider {
   ): void {
     this._lastMetaState = {type: 'metaState', values, taskUpdate};
     this._sendToWebview(this._lastMetaState);
+  }
+
+  /**
+   * Task Info view only (meta-panel-mode): a task just started in the
+   * ACTIVE chat editor panel, and the view is being brought up for it
+   * (SorcarPanelManager `taskStarted`): expand its Task Info and Task
+   * update sections and collapse the rest. A webview still loading
+   * (the view resolves after the reveal) gets the message on `ready`.
+   */
+  public postShowForRun(): void {
+    if (this._webviewReady) this._sendToWebview({type: 'showForRun'});
+    else this._showForRunPending = true;
   }
 
   /**

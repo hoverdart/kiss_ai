@@ -18,7 +18,11 @@
 //     bar with the keyboard focus left in the chat
 //     (kissSorcar.metaViewSecondary.focus {preserveFocus: true}) — for
 //     the ACTIVE panel on screen only, since the view describes that
-//     one; a failing reveal is logged, not thrown.
+//     one; a failing reveal is logged, not thrown — and the panel
+//     manager's onTaskStarted hook fires for that same start, through
+//     which extension.ts has the Task Info view arrange its sections
+//     for the run (postShowForRun: `showForRun` to a ready webview, or
+//     on its `ready` when the view is still loading).
 
 'use strict';
 
@@ -182,13 +186,18 @@ const {SorcarSidebarView} = require(
 
 function makeWebviewHost() {
   const recvEmitter = new StubEventEmitter();
+  // Every message the host posted into the webview.
+  const posted = [];
   const host = {
     webview: {
       options: {},
       html: '',
       cspSource: 'vscode-resource:',
       asWebviewUri: uri => makeUri(uri.fsPath),
-      postMessage: () => Promise.resolve(true),
+      postMessage: m => {
+        posted.push(m);
+        return Promise.resolve(true);
+      },
       onDidReceiveMessage: cb => recvEmitter.event(cb),
     },
     visible: true,
@@ -196,7 +205,38 @@ function makeWebviewHost() {
     onDidChangeVisibility: () => ({dispose: () => {}}),
     onDidDispose: () => ({dispose: () => {}}),
   };
-  return {host, fireMessage: m => recvEmitter.fire(m)};
+  return {host, posted, fireMessage: m => recvEmitter.fire(m)};
+}
+
+async function testTaskInfoViewShowForRunWaitsForReady() {
+  const view = new SorcarSidebarView(makeUri(EXT_ROOT), {
+    rootTabId: 'meta-panel',
+    bodyAttrs: ' class="editor-tab-mode meta-panel-mode"',
+    onEvent: () => {},
+  });
+  const wv = makeWebviewHost();
+  view.resolveWebviewView(wv.host, {}, {});
+  const showForRun = () => wv.posted.filter(m => m.type === 'showForRun');
+
+  // The view revealed for the start resolves after the relay: the
+  // message waits for the webview's `ready` (once, however many
+  // starts queued) instead of being lost on a page still loading.
+  view.postShowForRun();
+  view.postShowForRun();
+  assert.strictEqual(showForRun().length, 0, 'nothing posted before ready');
+  wv.fireMessage({type: 'ready', tabId: 'meta-panel'});
+  await tick();
+  assert.strictEqual(showForRun().length, 1, 'posted once on ready');
+
+  // A ready webview gets it at once; a later ready replays nothing.
+  view.postShowForRun();
+  assert.strictEqual(showForRun().length, 2, 'posted at once when ready');
+  wv.fireMessage({type: 'ready', tabId: 'meta-panel'});
+  await tick();
+  assert.strictEqual(showForRun().length, 2, 'nothing pending to replay');
+
+  view.dispose();
+  console.log('  ok - Task Info view: showForRun posted when ready, else on ready');
 }
 
 async function testSidebarViewMaximizesTheBar() {
@@ -235,6 +275,8 @@ async function testSidebarViewMaximizesTheBar() {
 
 async function testEditorPanelRevealsTaskInfoForTheActivePanel() {
   const manager = new SorcarPanelManager(makeUri(EXT_ROOT));
+  let starts = 0;
+  manager.onTaskStarted = () => starts++;
   manager.openNewChat();
   const panelA = createdPanels[0];
   manager.openNewChat();
@@ -243,7 +285,8 @@ async function testEditorPanelRevealsTaskInfoForTheActivePanel() {
   await tick();
   takeCommands();
 
-  // The ACTIVE panel's start brings the Task Info view up, focus kept.
+  // The ACTIVE panel's start brings the Task Info view up, focus kept,
+  // and tells the hook (extension.ts has the view arrange its sections).
   panelB._recv.fire({type: 'taskStarted'});
   await tick();
   assert.deepStrictEqual(
@@ -251,12 +294,14 @@ async function testEditorPanelRevealsTaskInfoForTheActivePanel() {
     [{id: 'kissSorcar.metaViewSecondary.focus', args: [{preserveFocus: true}]}],
     'the active editor-tab chat reveals the Task Info view without taking focus',
   );
+  assert.strictEqual(starts, 1, 'the start reaches onTaskStarted');
 
   // A background panel's start (a task launched from another surface)
   // must not bring the view up for the wrong chat.
   panelA._recv.fire({type: 'taskStarted'});
   await tick();
   assert.deepStrictEqual(takeCommands(), [], 'a background panel reveals nothing');
+  assert.strictEqual(starts, 1, 'a background panel reaches no hook');
 
   // The last active chat hidden behind a text editor: still the panel
   // the Task Info view describes, but not on screen.
@@ -265,8 +310,16 @@ async function testEditorPanelRevealsTaskInfoForTheActivePanel() {
   panelB._recv.fire({type: 'taskStarted'});
   await tick();
   assert.deepStrictEqual(takeCommands(), [], 'a chat behind an editor reveals nothing');
+  assert.strictEqual(starts, 1, 'a chat behind an editor reaches no hook');
   panelB.active = true;
   panelB.visible = true;
+
+  // No hook installed: the reveal alone.
+  manager.onTaskStarted = undefined;
+  panelB._recv.fire({type: 'taskStarted'});
+  await tick();
+  assert.strictEqual(takeCommands().length, 1, 'the reveal without a hook');
+  manager.onTaskStarted = () => starts++;
 
   // A failing reveal is logged, never thrown.
   const errors = [];
@@ -292,6 +345,7 @@ async function runTests() {
   await new Promise(r => server.listen(endpointPath, r));
   await testSidebarViewMaximizesTheBar();
   await testEditorPanelRevealsTaskInfoForTheActivePanel();
+  await testTaskInfoViewShowForRunWaitsForReady();
 }
 
 runTests().then(

@@ -2537,13 +2537,17 @@
    * A task just started in the chat on screen: give the run the
    * window.  Split layout: fold the content pane away, so the chat
    * alone fills #app with the task-info panel docked beside it (the
-   * next content tab shown unfolds it).  A VS Code chat surface tells
-   * the host (`taskStarted`): the secondary-sidebar chat view is
+   * next content tab shown unfolds it).  The panel's sections are
+   * arranged for the run: Task Info and Task update expanded, the
+   * rest collapsed (showMetaSectionsForRun).  A VS Code chat surface
+   * tells the host (`taskStarted`): the secondary-sidebar chat view is
    * maximized over the editor area, an editor-tab chat gets the Task
-   * Info view beside it (SorcarSidebarView._showChatForRun).
+   * Info view beside it, its sections arranged the same way through
+   * the host's `showForRun` (SorcarSidebarView._showChatForRun).
    */
   function showChatForRun() {
     if (splitLayout()) setContentPaneHidden(true);
+    showMetaSectionsForRun();
     if (POST_ACTIVE_TASK) postToHost({type: 'taskStarted'});
   }
   // runstart-coverage:end
@@ -6015,6 +6019,23 @@
       /* storage unavailable: the choice lasts for this page only */
     }
     applyMetaSectionLayout();
+  }
+
+  /** The sections a task start expands (ids); every other one folds. */
+  const RUN_START_SECTIONS = ['meta-section-info', 'meta-info'];
+
+  /**
+   * A task just started: expand Task Info and Task update and collapse
+   * every other section, so the panel shows the run's figures and its
+   * report.  The choice persists like a click on the chevrons; the
+   * user folds or unfolds sections again as they like.
+   */
+  function showMetaSectionsForRun() {
+    for (const section of metaSections())
+      setMetaSectionCollapsed(
+        section,
+        !RUN_START_SECTIONS.includes(section.id),
+      );
   }
 
   /**
@@ -16979,6 +17000,12 @@
         // The host relays the ACTIVE chat editor panel's task-info
         // values; only the Task Info view renders them.
         if (META_PANEL_MODE) renderMetaState(ev);
+        break;
+      case 'showForRun':
+        // The host relays a task start in the ACTIVE chat editor panel
+        // (its `taskStarted`); only the Task Info view arranges its
+        // sections for the run, like an in-page panel does itself.
+        if (META_PANEL_MODE) showMetaSectionsForRun();
         break;
       case 'refreshTaskUpdate':
         // The host relays the Task Info view's refresh button to the

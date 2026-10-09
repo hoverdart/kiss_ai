@@ -135,6 +135,12 @@ export class SorcarPanelManager {
   // Where the ACTIVE panel's chat / task ids go: the primary sidebar's
   // history panel (see extension.ts setActiveTaskSink wiring).
   private _activeTaskSink?: (chatId: string, taskId: string) => void;
+  /**
+   * Called when a task starts in the ACTIVE chat editor panel on
+   * screen, as the Task Info view is revealed for it. extension.ts
+   * has the view arrange its sections for the run (postShowForRun).
+   */
+  public onTaskStarted?: () => void;
   // The two editor-tab icons: the KISS logo, and the green ring spinner
   // shown while the panel's task runs.  Built once so a repaint that
   // keeps the icon does not push a fresh Uri to the workbench.
@@ -859,8 +865,10 @@ export class SorcarPanelManager {
         // screen that the view describes (the active panel): a start
         // in a background panel or behind a text editor (a task
         // launched from another surface) brings nothing up over what
-        // the user is looking at.
+        // the user is looking at. The view arranges its sections for
+        // the run (onTaskStarted) whether or not the reveal succeeds.
         if (this._activePanel() !== cp || !cp.panel.visible) break;
+        this.onTaskStarted?.();
         void vscode.commands
           .executeCommand('kissSorcar.metaViewSecondary.focus', {
             preserveFocus: true,

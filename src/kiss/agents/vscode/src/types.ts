@@ -1180,6 +1180,10 @@ type ToWebviewMessageBody =
       values: MetaPanelValues | null;
       taskUpdate: TaskUpdateState | null;
     }
+  // Editor-tabs mode (host relay): a task just started in the ACTIVE
+  // chat panel (its `taskStarted`); the Task Info view expands its
+  // Task Info and Task update sections and collapses the rest.
+  | {type: 'showForRun'}
   // The daemon's direct reply to `getCronJobs`: the scheduled cron jobs
   // (kiss/server/sidebar_panels.py cron_jobs_report).
   | {type: 'cronJobs'; jobs: CronJobRow[]}
