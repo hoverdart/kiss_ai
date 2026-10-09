@@ -419,6 +419,11 @@ export type FromWebviewMessage =
   // of this webview. The host brings the surface forward (sidebar view
   // or editor panel) without taking focus; nothing else is shown.
   | {type: 'revealForQuestion'}
+  // Both VS Code chat surfaces: a task just started in the chat tab
+  // this webview shows. The host gives the run the window: sidebar
+  // mode maximizes the secondary side bar over the editor area,
+  // editor-tabs mode brings the Task Info view up beside the chat.
+  | {type: 'taskStarted'}
   // Editor-tabs mode: open another chat as a new editor tab — a fresh
   // conversation when chatId is absent, a history resume otherwise.
   | {

@@ -852,6 +852,23 @@ export class SorcarPanelManager {
         if (vscode.window.activeTextEditor && !event.force) break;
         cp.panel.reveal(undefined, true);
         break;
+      case 'taskStarted':
+        // The run gets the window: the Task Info view comes up in the
+        // secondary side bar beside the chat, the keyboard focus stays
+        // in the chat the user just submitted from. Only for a chat on
+        // screen that the view describes (the active panel): a start
+        // in a background panel or behind a text editor (a task
+        // launched from another surface) brings nothing up over what
+        // the user is looking at.
+        if (this._activePanel() !== cp || !cp.panel.visible) break;
+        void vscode.commands
+          .executeCommand('kissSorcar.metaViewSecondary.focus', {
+            preserveFocus: true,
+          })
+          .then(undefined, err =>
+            console.error('[KISS Sorcar] Task Info reveal failed:', err),
+          );
+        break;
       case 'metaUpdate':
         cp.metaValues = event.values;
         cp.metaTaskUpdate = event.taskUpdate;

@@ -2532,6 +2532,22 @@
     else if (!hidden && ae === showBtn && hideBtn) hideBtn.focus();
   }
 
+  // runstart-coverage:start
+  /**
+   * A task just started in the chat on screen: give the run the
+   * window.  Split layout: fold the content pane away, so the chat
+   * alone fills #app with the task-info panel docked beside it (the
+   * next content tab shown unfolds it).  A VS Code chat surface tells
+   * the host (`taskStarted`): the secondary-sidebar chat view is
+   * maximized over the editor area, an editor-tab chat gets the Task
+   * Info view beside it (SorcarSidebarView._showChatForRun).
+   */
+  function showChatForRun() {
+    if (splitLayout()) setContentPaneHidden(true);
+    if (POST_ACTIVE_TASK) postToHost({type: 'taskStarted'});
+  }
+  // runstart-coverage:end
+
   function onContentPaneHideClick() {
     setContentPaneHidden(true);
   }
@@ -16720,6 +16736,21 @@
             pauseActivePanels(phaseHome);
           }
         }
+        // runstart-coverage:start
+        // A task that just STARTED in a chat tab gives the run the
+        // window (showChatForRun). Not a tab catching up on a run
+        // already going — the daemon marks those `attached` (a
+        // reload's replay, a history open: server.py
+        // _broadcast_viewer_running) — not a repeated running status,
+        // and not a sub-agent's start.
+        const justStarted =
+          !!evTab &&
+          !!ev.running &&
+          !ev.attached &&
+          !evTab.isRunning &&
+          !evTab.isContentTab &&
+          !evTab.isSubagentTab;
+        // runstart-coverage:end
         if (evTab) {
           evTab.statusKnown = true;
           setTabRunning(evTab, !!ev.running);
@@ -16792,6 +16823,9 @@
         // finishing must not: the launch already brought them to it, and the
         // result they were brought to see is the last thing to pull them off.
         if (ev.running) switchToLatestRunningTab();
+        // runstart-coverage:start
+        if (justStarted && evTab.id === activeTabId) showChatForRun();
+        // runstart-coverage:end
         break;
       }
       case 'models':

@@ -208,6 +208,9 @@ export type PanelEvent =
   // `force`: a question is waiting, so reveal even while the user is
   // in a text editor.
   | {kind: 'reveal'; force?: boolean}
+  // A task just started in the panel's chat tab: bring the Task Info
+  // view up in the secondary side bar, keyboard focus kept in the chat.
+  | {kind: 'taskStarted'}
   // Open another chat as a new editor tab (fresh when chatId is '').
   | {
       kind: 'openChat';
@@ -1729,6 +1732,10 @@ export class SorcarSidebarView implements vscode.WebviewViewProvider {
         this._revealForQuestion();
         break;
 
+      case 'taskStarted':
+        this._showChatForRun();
+        break;
+
       case 'openChatPanel':
         this._panelHooks?.onEvent({
           kind: 'openChat',
@@ -2157,6 +2164,26 @@ export class SorcarSidebarView implements vscode.WebviewViewProvider {
     if (this._panelHooks)
       this._panelHooks.onEvent({kind: 'reveal', force: true});
     else this._view?.show();
+  }
+
+  /**
+   * A task just started in the chat tab this webview shows: give the
+   * run the window. The sidebar chat view, when it is on screen (a
+   * task launched from another surface while the bar is closed must
+   * not cover what the user is working on), maximizes the secondary
+   * side bar: VS Code hides the editor area, the primary side bar and
+   * the panel, and restores them when the user opens an editor or
+   * presses the bar's restore button; a bar already maximized is left
+   * alone. An editor-tab chat cannot lose the editor area it lives
+   * in, so it brings the Task Info view up beside itself instead (the
+   * panel manager, keyboard focus kept in the chat).
+   */
+  private _showChatForRun(): void {
+    if (this._panelHooks) this._panelHooks.onEvent({kind: 'taskStarted'});
+    else if (this._view?.visible)
+      void vscode.commands
+        .executeCommand('workbench.action.maximizeAuxiliaryBar')
+        .then(undefined, () => undefined); // VS Code < 1.102: no such command
   }
 
   public async focusChatInput(): Promise<void> {
