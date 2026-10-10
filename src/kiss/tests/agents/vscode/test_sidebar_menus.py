@@ -31,6 +31,7 @@ import re
 from collections import Counter
 
 import pytest
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
 from kiss.tests.agents.vscode.test_workspace_sections import (
@@ -80,12 +81,16 @@ def _click_root_button(page, root: str, action: str) -> None:
     _show_panel(page)
     row = page.locator(_row_at(root, ".is-root"))
     button = page.locator(f"{_row_at(root, '.is-root')} .explorer-root-{action}")
-    for _ in range(50):
+    for attempt in range(50):
         row.hover()
-        if button.is_visible():
-            break
-        page.wait_for_timeout(100)
-    button.click()
+        try:
+            button.click(timeout=500)
+            return
+        except PlaywrightTimeoutError:
+            if attempt == 49:
+                raise
+            page.wait_for_timeout(100)
+
 
 
 def _open_page(browser, harness, width: int = 1400):
@@ -2052,6 +2057,15 @@ def _pdf_scroll_top(page) -> float:
     return float(page.evaluate(_PDF_PAGE_TOP_JS, 1)["scrollTop"])
 
 
+def _wait_pdf_scroll_top(page, expected: float) -> None:
+    page.wait_for_function(
+        "expected => document.querySelector('.content-tab-view .pdf-scroller').scrollTop"
+        " === expected",
+        arg=expected,
+        timeout=10000,
+    )
+
+
 def _assert_pdf_page_at_top(page, n: int) -> None:
     """Page *n* starts at the top of the view, under the margin the
     first page has at scroll offset 0."""
@@ -2126,6 +2140,7 @@ def test_pdf_keyboard_shortcuts_move_pages_and_zoom(browser, harness, worktree):
         page.keyboard.press("PageDown")
         assert _pdf_scroll_top(page) == bottom
         page.keyboard.press("Home")
+        _wait_pdf_scroll_top(page, 0)
         assert _pdf_scroll_top(page) == 0
         _wait_pdf_status(page, "Page 1 of 8")
         # From inside page 3 (its top 40px above the view), forward goes
@@ -2155,6 +2170,7 @@ def test_pdf_keyboard_shortcuts_move_pages_and_zoom(browser, harness, worktree):
         page.keyboard.press("Control+Equal")
         _wait_pdf_page_width(page, fit_width * 1.25)
         page.keyboard.press("Home")
+        _wait_pdf_scroll_top(page, 0)
         assert _pdf_scroll_top(page) == 0
         page.keyboard.press("ArrowRight")
         assert _pdf_scroll_top(page) == 0
@@ -2175,6 +2191,7 @@ def test_pdf_keyboard_shortcuts_move_pages_and_zoom(browser, harness, worktree):
         page.set_viewport_size(size)
         _wait_pdf_page_width(page, fit_width)
         page.keyboard.press("Home")
+        _wait_pdf_scroll_top(page, 0)
         assert _pdf_scroll_top(page) == 0
         # Keys typed into the page field are the field's.
         page.locator(_PDF_VIEWER + " .pdf-page-input").click()

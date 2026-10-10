@@ -1800,6 +1800,16 @@ body.remote-chat #terminal-btn { display: flex; }
   direction: rtl; text-align: left;
 }
 .model-item.active { color: var(--accent); font-weight: 500; }
+.model-item[aria-disabled="true"] { cursor: not-allowed; align-items: start; }
+.model-picker-empty { padding: var(--space-3); color: var(--fg); }
+.cli-connection { margin-bottom: var(--space-4); }
+.cli-connection code { overflow-wrap: anywhere; }
+
+.cli-connection select {
+  width: 100%; box-sizing: border-box; padding: var(--space-2);
+  background: var(--bg2); color: var(--fg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
 .model-cost { font-size: var(--fs-sm); color: color-mix(in srgb, var(--fg) 50%, transparent); flex-shrink: 0; margin-left: var(--space-3); }
 
 .model-group-hdr {
@@ -5280,4 +5290,11 @@ code { font-family: var(--font-mono); }
   font-size: var(--fs-sm);
   line-height: 1;
   color: var(--fg);
+}
+
+.model-unavailable { display: block; direction: ltr; unicode-bidi: normal; font-size: var(--fs-sm); white-space: normal; overflow-wrap: anywhere; color: var(--dim); }
+
+@media (width <= 320px) {
+  .model-item { flex-wrap: wrap; }
+  .model-cost { flex-basis: 100%; margin-left: 0; }
 }

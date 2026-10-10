@@ -30,9 +30,12 @@ import pytest
 from kiss.agents.sorcar.sorcar_agent import _agent_usage
 from kiss.core.speech_synthesis import synthesize_talk_audio
 from kiss.tests.agents.sorcar.test_talk_tool import _find_tool, _make_agent
+from kiss.tests.conftest import requires_openai_api_key
 from kiss.tests.server._memory_printer import MemoryPrinter
 
 
+@pytest.mark.live_api
+@requires_openai_api_key
 def test_stop_after_synthesis_still_charges_the_tts_spend() -> None:
     """The task pays for the synthesized audio even when stopped right after it."""
     printer = MemoryPrinter()

@@ -114,10 +114,10 @@ exclude = ["src/kiss/agents/vscode/node_modules"]
 # which hatchling always adds) instead of the whole repository. An exclude list
 # was tried before and kept falling behind: benchmark results, demo media,
 # papers and reports grew the sdist to 350 MB.
-only-include = ["src/kiss", "projects/swedefend"]
+only-include = ["src/kiss"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kiss", "projects/swedefend"]
+packages = ["src/kiss"]
 
 [dependency-groups]
 dev = [
@@ -200,7 +200,7 @@ markers = [
     "redundancy_check: marks tests for redundancy check",
     "live_cli: test spawns the real claude/codex CLI (opts out of the CLI-locator stub)",
     "live_api: test makes real HTTP calls to a provider API (skipped when the required API key is unset)",
-    "process_killer: test delivers signals (os.killpg bursts / SIGKILL cleanup) to whole process groups and can take down sibling pytest processes when many splits run concurrently; deselected by default, run explicitly with -m process_killer",
+    "process_killer: test delivers process-group signals or repeated asynchronous thread interrupts and can leave processes or interpreter state damaged; deselected by default, run explicitly in isolation with -m process_killer",
 ]
 # Disable timeout so tests run without time limit
 timeout = 0
@@ -343,9 +343,7 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-# "projects" makes ruff's isort keep treating the swedefend package
-# (now at projects/swedefend) as first-party.
-src = [".", "src", "projects"]
+src = [".", "src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP"]
@@ -437,4 +435,3 @@ kiss-gdrive = "kiss.agents.third_party_agents.gdrive.gdrive_sea:main"
 kiss-gdocs = "kiss.agents.third_party_agents.gdocs.gdocs_sea:main"
 kiss-gsheets = "kiss.agents.third_party_agents.gsheets.gsheets_sea:main"
 kiss-cron = "kiss.agents.sorcar.cron_agent:main"
-swedefend-eval = "swedefend.evaluate_fable5:main"

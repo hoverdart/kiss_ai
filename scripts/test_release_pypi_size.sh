@@ -37,7 +37,7 @@ tar tzf "$SDIST" > "$WORK/sdist-files.txt"
 # Members are "<name>-<version>/<path>"; the repository-level directories are
 # matched at the root so a same-named directory deeper in the tree (as
 # src/kiss/tests/benchmarkings/ once was) does not trip the check.
-for banned in benchmarkings/ papers/ assets/ reports/ .kiss-worktrees/; do
+for banned in benchmarkings/ projects/ papers/ assets/ reports/ .kiss-worktrees/; do
     if grep -q "^[^/]*/$banned" "$WORK/sdist-files.txt"; then
         fail "sdist contains $banned:"$'\n'"$(grep "^[^/]*/$banned" "$WORK/sdist-files.txt" | head -3)"
     fi
@@ -46,12 +46,12 @@ done
 if grep -q "/node_modules/" "$WORK/sdist-files.txt"; then
     fail "sdist contains node_modules:"$'\n'"$(grep "/node_modules/" "$WORK/sdist-files.txt" | head -3)"
 fi
-pass "sdist carries no benchmarkings/, papers/, assets/, reports/, node_modules/ or worktrees"
+pass "sdist carries no benchmarkings/, projects/, papers/, assets/, reports/, node_modules/ or worktrees"
 
-for required in src/kiss/core/_version.py src/kiss/agents/sorcar/sorcar_agent.py projects/swedefend/ pyproject.toml README.md LICENSE; do
+for required in src/kiss/core/_version.py src/kiss/agents/sorcar/sorcar_agent.py pyproject.toml README.md LICENSE; do
     grep -q "^[^/]*/$required" "$WORK/sdist-files.txt" || fail "sdist lacks $required"
 done
-pass "sdist carries src/kiss, projects/swedefend, pyproject.toml, README.md and LICENSE"
+pass "sdist carries src/kiss, pyproject.toml, README.md and LICENSE"
 
 # The build log proves the wheel came out of the sdist, not the source tree.
 grep -q "Building wheel from source distribution" "$WORK/build.log" || fail "uv build did not build the wheel from the sdist"
